@@ -211,7 +211,7 @@ export default function EllipticCurve() {
         title="Elliptic Curve"
         year={2026}
         process="Point Addition over a Finite Field"
-        proposition="A continuous geometric curve shatters into a scatter plot when constrained to modular arithmetic, yet retains perfect algebraic structure."
+        proposition="Over a finite field, this curve is a set of points, but its addition law remains exact."
         technicalRecord={{
           algorithm: "Curve analogue over F₉₇",
           seed: "y² ≡ x³ + 7 (mod 97)",
@@ -219,18 +219,16 @@ export default function EllipticCurve() {
         }}
       >
         <p>
-          Elliptic Curve Cryptography (ECC) relies on the algebraic structure of elliptic curves over finite fields. 
-          While textbook explanations often show smooth, continuous curves over real numbers, actual cryptographic implementations 
-          operate over discrete, finite sets of integers (modulo a large prime).
+          Elliptic-curve cryptography uses the addition law of curves over finite fields. Production systems work
+          with discrete coordinates modulo a large prime, not the smooth real-number curves used in many introductions.
         </p>
         <p>
-          This visualization uses the same curve equation form as <strong>secp256k1</strong>, but over the small prime field 97 
-          so every valid point remains visible. It is an educational analogue, not a scaled instance of Bitcoin&apos;s curve.
+          This work uses the same equation form as <strong>secp256k1</strong>, y² = x³ + 7, over F₉₇. The small field
+          keeps every valid point visible; it is not a small version of Bitcoin&apos;s group.
         </p>
         <p>
-          Despite this visual discontinuity, the algebraic rules of point addition still apply exactly. Select two points and the 
-          application computes their sum modulo 97. Inverse pairs resolve explicitly to the point at infinity, the identity element 
-          of the curve group.
+          Select two points to add them modulo 97. Inverse pairs and vertical tangents return the point at infinity,
+          the group identity.
         </p>
         </InfoPanel>
     </div>

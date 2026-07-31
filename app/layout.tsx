@@ -5,7 +5,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Cryptographic Arts',
-  description: 'Cryptographic structures rendered as objects of perception.',
+  description: 'Cryptographic structures rendered as objects of perception, inspired by Hal Finney\'s 1993 "Crypto trading cards" post.',
 };
 
 export default function RootLayout({
@@ -29,7 +29,7 @@ export default function RootLayout({
             </div>
             <div className="text-center md:text-right opacity-50 flex gap-4 md:gap-8 items-center flex-col sm:flex-row">
               <span>Developed by Mars Mensch, 2026.</span>
-              <span className="hidden sm:inline">Inspired by Hal Finney, 1993</span>
+              <span className="hidden sm:inline">Inspired by Hal Finney&apos;s 1993 &quot;Crypto trading cards&quot; post</span>
             </div>
           </footer>
         </MotionProvider>

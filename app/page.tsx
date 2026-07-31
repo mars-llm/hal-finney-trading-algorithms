@@ -17,7 +17,7 @@ export default function Home() {
         <div className="max-w-2xl w-full text-center space-y-10 md:space-y-12">
           <div>
             <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.28em] text-ink-muted">
-              A curated study of computational structure
+              Inspired by Hal Finney&apos;s 1993 &quot;Crypto trading cards&quot; post
             </p>
             <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl tracking-[0.12em] sm:tracking-widest text-white mb-5 uppercase">
               CRYPTOGRAPHIC ARTS

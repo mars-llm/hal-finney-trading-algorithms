@@ -183,7 +183,7 @@ export default function ZeroKnowledge() {
                 className="font-mono text-[10px] md:text-xs tracking-widest uppercase space-y-3"
               >
                 <p className={round.verified ? 'text-white' : 'text-[#ef4444]'}>
-                  gˢ = t · yᶜ — {round.verified ? 'ACCEPTED' : 'REJECTED'}
+                  gˢ = t · yᶜ: {round.verified ? 'ACCEPTED' : 'REJECTED'}
                 </p>
                 {round.mode === 'no-witness' && (
                   <p className="text-ink-muted opacity-60">
@@ -241,7 +241,7 @@ export default function ZeroKnowledge() {
         title="Zero-Knowledge Identification"
         year={1991}
         process="Commitment · Random Challenge · Response"
-        proposition="A prover demonstrates knowledge of a discrete logarithm through an equation the verifier can check, without sending the witness."
+        proposition="A prover demonstrates knowledge of a discrete logarithm with an equation the verifier can check, without sending the witness."
         technicalRecord={{
           algorithm: 'Interactive Schnorr Sigma protocol',
           seed: 'Web Crypto independent binary challenges',
@@ -249,19 +249,19 @@ export default function ZeroKnowledge() {
         }}
       >
         <p>
-          The public statement is y = gˣ; only the honest prover holds x. It first samples r and sends
-          t = gʳ. Only after that commitment exists does the verifier sample c. The prover returns
-          s = r + cx mod q, and the verifier accepts exactly when gˢ = t · yᶜ mod p.
+          The public value is y = gˣ; the honest prover alone has x. It samples r and commits t = gʳ before
+          the verifier chooses c. It then returns s = r + cx mod q, which the verifier checks with
+          gˢ = t · yᶜ mod p.
         </p>
         <p>
-          “No witness” executes a real optimal one-round impersonation strategy. Before seeing c, it guesses
-          a bit, chooses s, and constructs t = gˢ · y⁻ᶜ. The equation succeeds only if the independent verifier
-          challenge matches that hidden guess, giving soundness error 1/2 per round.
+          &quot;No witness&quot; uses the best one-round impersonation strategy. Before seeing c, it guesses a bit,
+          chooses s, and constructs t = gˢ · y⁻ᶜ. The equation succeeds only when the independent verifier
+          challenge matches that hidden guess, giving a soundness error of 1/2 per round.
         </p>
         <p>
-          After n consecutive accepted independent rounds, the probability that this guessing strategy passed
-          every round is 2⁻ⁿ. The confidence display is its complement; it resets after rejection and does not
-          claim absolute certainty. This small finite group is explanatory, not secure.
+          After n consecutive accepted independent rounds, the chance that this guessing strategy passed every
+          round is 2⁻ⁿ. The confidence display is its complement. It resets after rejection and does not claim
+          absolute certainty. This small finite group is explanatory, not secure.
         </p>
       </InfoPanel>
     </div>

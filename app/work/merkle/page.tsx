@@ -251,7 +251,7 @@ export default function Merkle() {
         title="Merkle"
         year={2026}
         process="Merkle Tree & Inclusion Proof"
-        proposition="Local evidence authenticates membership in a larger unseen structure without revealing the whole."
+        proposition="A leaf and its sibling path can be enough to recompute a committed Merkle root."
         technicalRecord={{
           algorithm: "SHA-256 Merkle Tree (8 leaves)",
           seed: "CRYPTOGRAPHIC_ARTS_MERKLE_LEAF_n",
@@ -259,20 +259,16 @@ export default function Merkle() {
         }}
       >
         <p>
-          A Merkle tree compresses a large dataset into a single hash (the root). By combining hashes 
-          in a hierarchical tree structure, any single piece of data (a leaf) can be verified by 
-          providing only the hashes along the path from the leaf to the root.
+          A Merkle tree commits a collection of leaves to one root hash. To verify one leaf, a
+          verifier needs the leaf and the sibling hash at each level on its route to that root.
         </p>
         <p>
-          When you select a leaf in this visualization, the structure recedes, leaving only the 
-          selected data (black) and the specific sibling hashes required for the proof (accent color). 
-          By hashing the leaf with its sibling, and that result with its sibling, the verifier can 
-          eventually reconstruct the root.
+          Select a leaf to isolate its three sibling hashes. The browser combines them in the proper
+          left-or-right order and recomputes the root.
         </p>
         <p>
-          If the reconstructed root matches the known root, the data is proven to be part of the set, 
-          even though the vast majority of the tree remains invisible. This is the mechanism that 
-          allows lightweight clients to verify transactions in a blockchain without downloading the entire chain.
+          A matching reconstructed root verifies the selected leaf against this tree. The same compact
+          proof idea lets systems verify membership without sending every leaf.
         </p>
         </InfoPanel>
     </div>

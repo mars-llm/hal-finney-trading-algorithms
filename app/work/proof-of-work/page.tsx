@@ -209,7 +209,7 @@ export default function ProofOfWork() {
         title="Proof of Work"
         year={2026}
         process="Leading-Zero Target Search"
-        proposition="Asymmetric effort: computationally expensive to discover, trivial to verify."
+        proposition="Searching for a nonce takes repeated hashes; checking a discovered nonce takes one."
         technicalRecord={{
           algorithm: "SHA-256",
           seed: "User-supplied block data + decimal nonce",
@@ -217,18 +217,18 @@ export default function ProofOfWork() {
         }}
       >
         <p>
-          Proof of Work relies on the unpredictability of cryptographic hash functions. By requiring a hash 
-          output to begin with a specific number of zero bits, the system forces the prover to engage in 
-          brute-force computation—iterating a &quot;nonce&quot; value until a rare, valid output is discovered.
+          Proof of Work sets a target for a hash output. Here, the target is a chosen number of
+          leading zero bits. The search increments a decimal nonce until SHA-256 produces a digest
+          that meets that target.
         </p>
         <p>
-          This asymmetry is the foundation of decentralized consensus. While it may take millions of iterations 
-          to find a valid nonce, any observer can verify the solution instantly with a single hash computation.
+          The search is probabilistic. It may take many attempts to find a valid nonce, while anyone
+          can check a reported nonce with one hash.
         </p>
         <p>
-          This browser-scale search demonstrates the same discovery-versus-verification asymmetry used by
-          Hashcash (1997) and Bitcoin (2008). It does not reproduce Bitcoin block serialization, double SHA-256,
-          or network difficulty.
+          This browser-scale construction shares the discovery and verification asymmetry used by
+          Hashcash (1997) and Bitcoin (2008). It does not reproduce Bitcoin block serialization,
+          double SHA-256, or network difficulty.
         </p>
         </InfoPanel>
     </div>

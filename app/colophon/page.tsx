@@ -18,13 +18,13 @@ export default function Colophon() {
           <div className="space-y-4 font-sans text-sm leading-relaxed text-[#D4D4D4] opacity-80">
             <p>
               <strong>Cryptographic Arts</strong> is an online exhibition about the structure of
-              cryptographic processes. Its point of departure is Hal Finney&apos;s 1993 proposal for
-              &quot;cryptographic trading cards&quot;: objects worth examining for the mathematical
-              arrangements they represent.
+              cryptographic processes. It begins with Hal Finney&apos;s 1993 post, &quot;Crypto trading
+              cards,&quot; which imagines cryptographic objects as things worth examining for the
+              mathematical arrangements they contain.
             </p>
             <p>
-              The exhibition is inspired by Finney&apos;s work but is not affiliated with him. It is
-              not a collection of on-chain assets, NFTs, or Ordinals.
+              The exhibition is inspired by Finney&apos;s post and is not affiliated with him. It is not
+              a collection of on-chain assets, NFTs, or Ordinals.
             </p>
             <p>
               The algorithms produce the displayed state. The visual treatment makes their internal

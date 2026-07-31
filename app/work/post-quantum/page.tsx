@@ -193,8 +193,8 @@ export default function PostQuantum() {
                 className={verification === 'valid' ? 'text-white' : 'text-[#ef4444]'}
               >
                 {verification === 'valid'
-                  ? 'VALID — ALL 256 REVEALED BLOCKS MATCH THE PUBLIC KEY'
-                  : 'INVALID — THE MESSAGE DIGEST SELECTS DIFFERENT PUBLIC BLOCKS'}
+                  ? 'VALID: ALL 256 REVEALED BLOCKS MATCH THE PUBLIC KEY'
+                  : 'INVALID: THE MESSAGE DIGEST SELECTS DIFFERENT PUBLIC BLOCKS'}
               </motion.p>
             )}
             {currentDigest && (
@@ -235,20 +235,19 @@ export default function PostQuantum() {
         }}
       >
         <p>
-          Key generation creates 256 pairs of independent 32-byte secrets. Hashing all 512 secrets with SHA-256
-          produces the public key. To sign, SHA-256 first reduces the message to 256 bits; each digest bit selects
-          exactly one secret from its corresponding pair, producing a 256-block signature.
+          A Lamport key has 256 pairs of independent 32-byte secrets. Hashing all 512 secrets with SHA-256
+          produces the public key. To sign, SHA-256 reduces the message to 256 bits; each digest bit selects
+          one secret from its corresponding pair, producing a 256-block signature.
         </p>
         <p>
-          The verifier independently hashes the current message, then hashes every revealed signature block and
-          compares it with the selected public-key block. Change the message after signing and the digest selects
-          different halves, so verification fails.
+          The verifier hashes the current message, then hashes every revealed signature block and compares it
+          with the selected public-key block. Change the message after signing and the digest selects different
+          halves, so verification fails.
         </p>
         <p>
           Revealing half of every secret pair makes key reuse unsafe: signatures on different digests expose both
-          alternatives at some positions. This exhibit therefore discards the private key after one signature.
-          Production stateless hash-based systems such as SLH-DSA combine one-time and few-time signatures with
-          Merkle-tree constructions.
+          alternatives at some positions. This work discards the private key after one signature. Production
+          stateless hash-based systems such as SLH-DSA combine one-time and few-time signatures with Merkle trees.
         </p>
       </InfoPanel>
     </div>

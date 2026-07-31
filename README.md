@@ -29,7 +29,7 @@ Cryptographic operations use the browser's Web Crypto API where it provides the 
 
 ## Local development
 
-Node.js 20.9 or newer and npm are required.
+Node.js 24 or newer and npm are required.
 
 ```bash
 npm ci

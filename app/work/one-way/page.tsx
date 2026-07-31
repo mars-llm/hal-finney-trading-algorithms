@@ -134,7 +134,7 @@ export default function OneWay() {
         title="One Way"
         year={2026}
         process="Iterated Hash Chain"
-        proposition="Structure progresses continuously forward; historical states become computationally inaccessible."
+        proposition="A hash chain is easy to advance and hard to reverse from its current digest alone."
         technicalRecord={{
           algorithm: "SHA-256(n-1)",
           seed: "CRYPTOGRAPHIC_ARTS_ONE_WAY_SEED",
@@ -142,20 +142,17 @@ export default function OneWay() {
         }}
       >
         <p>
-          This piece illustrates the concept of a cryptographic one-way function. 
-          A one-way function is easy to compute in the forward direction but computationally 
-          infeasible to invert.
+          A one-way function is practical to evaluate in the forward direction and intended to be
+          infeasible to invert. This work uses SHA-256 to make that direction visible.
         </p>
         <p>
-          The central composition represents 32 bytes of state. When you interact with the piece, 
-          the current state is passed through a SHA-256 hash function to generate the next state. 
-          The previous state is discarded.
+          The 32 bars encode the current 32-byte digest. Each transformation hashes that digest to
+          produce the next one. The display retains a faint trace of prior states, but the current
+          digest alone does not reveal its predecessor.
         </p>
         <p>
-          While the sequence is entirely deterministic, it is impossible to reconstruct the previous 
-          visual structure solely by observing the current one. The faint barcode forming at the top 
-          of the screen acts as a memory trace—a reminder that a rigorous mathematical history exists, 
-          even though working backward to prove it is impossible without retaining the exact sequence.
+          The chain is deterministic: the same seed produces the same sequence. The barcode records
+          that sequence as it is generated. It is not an inversion of the current hash.
         </p>
         </InfoPanel>
     </div>

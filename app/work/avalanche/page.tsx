@@ -220,7 +220,7 @@ export default function Avalanche() {
         title="Avalanche"
         year={2026}
         process="SHA-256 Hash Function"
-        proposition="A minimal change in input state yields a catastrophic reorganization of output state."
+        proposition="Changing one input bit produces a digest with no useful local resemblance to the previous digest."
         technicalRecord={{
           algorithm: "SHA-256",
           seed: "CRYPTOGRAPHIC_ARTS_AVALANCHE_SEED",
@@ -228,19 +228,18 @@ export default function Avalanche() {
         }}
       >
         <p>
-          This work visualizes the cryptographic property known as the &quot;avalanche effect.&quot; 
-          In a strong cryptographic hash function, flipping a single bit of the input should, 
-          on average, cause exactly half of the output bits to flip.
+          The avalanche effect describes how a small input change spreads through a cryptographic
+          hash. For a well-designed hash, changing one input bit changes about half of the output
+          bits on average.
         </p>
         <p>
-          The left grid represents 256 bits of input data. The right grid represents the 256-bit 
-          SHA-256 digest of that data. When you interact with the piece by inverting a single 
-          input cell, the underlying mathematical structure cascades that change through multiple 
-          rounds of non-linear transformations.
+          The left grid is a 256-bit input. The right grid is its SHA-256 digest. Invert one input
+          bit and the displayed digest is recomputed from that exact 32-byte value.
         </p>
         <p>
-          The resulting visual explosion of changed bits demonstrates why it is computationally 
-          infeasible to work backward from a hash to its source: continuity and locality are entirely destroyed.
+          The changed-bit count shows that nearby inputs do not produce nearby-looking digests.
+          Preimage resistance is a separate security property of SHA-256; this work does not try to
+          prove it from the picture.
         </p>
         </InfoPanel>
     </div>
