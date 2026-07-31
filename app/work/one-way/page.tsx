@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { InfoPanel } from '../../../components/InfoPanel';
-import { sha256 } from '../../../lib/crypto';
+import { bytesToHex, sha256 } from '../../../lib/crypto';
 
 export default function OneWay() {
   const [seedText, setSeedText] = useState("CRYPTOGRAPHIC_ARTS");
@@ -52,10 +52,12 @@ export default function OneWay() {
 
   if (!currentHash) return null;
 
+  const currentHex = bytesToHex(currentHash);
+  const previousHex = history.length > 0 ? history[history.length - 1] : null;
+  const chainPosition = history.length + 1;
+
   return (
-    <div className="flex-1 flex flex-col min-h-[38rem] relative pb-20">
-      
-      {/* History Trace (Top Barcode) */}
+    <div className="flex-1 flex flex-col min-h-[38rem] relative px-4 py-8 pb-24 md:px-12 md:py-12 md:pb-24">
       <div className="absolute top-8 left-5 right-5 md:top-12 md:left-12 md:right-12 flex flex-col gap-[1px] opacity-20 pointer-events-none z-0" aria-hidden="true">
         {history.slice(-20).map((hex, i) => (
           <div key={`${hex}-${i}`} className="h-px w-full flex"> 
@@ -74,21 +76,52 @@ export default function OneWay() {
         ))}
       </div>
 
-      {/* Main Visualization */}
-      <div className="flex-1 flex flex-col items-center justify-center px-5 pt-24 pb-8 md:p-12 z-10">
-        <div className="w-full max-w-sm mb-10 flex flex-col gap-2 pointer-events-auto">
-           <label className="font-mono text-[10px] text-ink-muted uppercase tracking-widest text-center">Initial State (Seed)</label>
-           <input 
-             type="text" 
-             value={seedText}
-             onChange={(e) => setSeedText(e.target.value)}
-             className="bg-transparent border-b border-white/20 text-white font-mono text-xs text-center pb-2 focus:outline-none focus:border-white/50 transition-colors w-full"
-             placeholder="Enter seed text..."
-             maxLength={32}
-           />
+      <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center pt-16 md:pt-20">
+        <header className="w-full max-w-2xl text-center">
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-accent">Iterated SHA-256</p>
+          <h2 className="mt-3 font-serif text-2xl text-white">Each step hashes the digest in front of it.</h2>
+          <p className="mt-2 text-sm text-ink-muted">The chain is deterministic. The arrow points only forward.</p>
+        </header>
+
+        <div className="mt-7 flex w-full max-w-2xl flex-col gap-3 border-y border-white/15 py-4 sm:flex-row sm:items-end sm:gap-5">
+          <label className="min-w-0 flex-1 space-y-2 font-mono text-[10px] uppercase tracking-widest text-ink-muted">
+            <span className="block text-center sm:text-left">Seed text</span>
+            <input
+              type="text"
+              value={seedText}
+              onChange={(event) => setSeedText(event.target.value)}
+              className="w-full border-b border-white/20 bg-transparent pb-2 text-center font-mono text-xs text-white transition-colors focus:border-white/50 focus:outline-none sm:text-left"
+              placeholder="Enter seed text"
+              maxLength={32}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={advance}
+            disabled={isComputing}
+            className="min-h-12 shrink-0 border border-white/30 bg-[#D4D4D4] px-6 font-mono text-[10px] uppercase tracking-widest text-[#0E0E0E] transition-colors hover:bg-white disabled:opacity-50"
+          >
+            {isComputing ? 'Hashing' : 'Hash current digest'}
+          </button>
         </div>
 
-        <div className="w-full max-w-4xl h-64 md:h-96 flex items-end justify-between gap-1 md:gap-2 pointer-events-none">
+        <section className="mt-8 w-full max-w-2xl border border-white/10 bg-[#0a0a0a] px-5 py-5 text-center font-mono text-[10px] uppercase tracking-widest">
+          <p className="text-ink-muted">Chain position</p>
+          <p className="mt-2 text-xl text-white">H<sup>{chainPosition}</sup>(seed)</p>
+          <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-left">
+            <div className="min-w-0">
+              <p className="text-[9px] text-ink-muted">{previousHex ? `H${chainPosition - 1}(seed)` : 'seed'}</p>
+              <p className="mt-1 truncate text-white">{previousHex ? `${previousHex.slice(0, 16)}…` : `"${seedText || 'empty'}"`}</p>
+            </div>
+            <div className="text-accent">SHA-256 →</div>
+            <div className="min-w-0 text-right">
+              <p className="text-[9px] text-ink-muted">H{chainPosition}(seed)</p>
+              <p className="mt-1 truncate text-white">{currentHex.slice(0, 16)}…</p>
+            </div>
+          </div>
+        </section>
+
+        <div className="mt-8 flex h-48 w-full max-w-4xl items-end justify-between gap-1 md:h-72 md:gap-2 pointer-events-none">
           {Array.from(currentHash).map((byte, i) => {
             const heightPct = (byte / 255) * 100;
             return (
@@ -102,20 +135,15 @@ export default function OneWay() {
             );
           })}
         </div>
-      </div>
-
-      {/* Control */}
-      <div className="p-6 md:p-12 flex flex-col items-center gap-4 z-10 bg-gradient-to-t from-[#0E0E0E] to-transparent">
-        <button
-          onClick={advance}
-          disabled={isComputing}
-          className="px-8 py-3 bg-[#D4D4D4] text-[#0E0E0E] font-mono text-sm tracking-widest hover:bg-white transition-colors disabled:opacity-50 border border-white/20 hover:border-white"
-        >
-          {isComputing ? 'COMPUTING...' : 'TRANSFORM ( f(x) )'}
-        </button>
-        <p className="font-mono text-[10px] text-ink-muted text-center">
-          Irreversible forward progression. Prior states cannot be recovered.
+        <p className="mt-5 max-w-xl text-center font-sans text-sm text-ink-muted">
+          The bars are the current 32-byte digest. Earlier values stay in the trace for comparison, not because the current digest can reveal them.
         </p>
+        {history.length > 0 && (
+          <div className="mt-6 flex w-full max-w-2xl flex-wrap justify-center gap-x-4 gap-y-2 font-mono text-[9px] uppercase tracking-widest text-ink-muted">
+            <span>Recent states</span>
+            {history.slice(-4).map((digest, index) => <span key={`${digest}-${index}`}>H{Math.max(1, chainPosition - history.slice(-4).length + index)} {digest.slice(0, 8)}…</span>)}
+          </div>
+        )}
       </div>
 
       <InfoPanel

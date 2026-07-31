@@ -69,6 +69,18 @@ export default function Merkle() {
     : verificationResult?.leaf === selectedLeaf
       ? verificationResult.status
       : 'verifying';
+  const proofNodes = selectedLeaf === null
+    ? []
+    : Array.from({ length: levels.length - 1 }, (_, index) => {
+      const levelIndex = levels.length - 1 - index;
+      const pathIndex = selectedLeaf >> index;
+      const siblingIndex = pathIndex ^ 1;
+      return {
+        step: index + 1,
+        side: siblingIndex < pathIndex ? 'left sibling' : 'right sibling',
+        hash: levels[levelIndex][siblingIndex].hash,
+      };
+    });
 
   // If a leaf is selected, calculate which nodes are part of the proof
   const getNodeRole = (levelIndex: number, nodeIndex: number) => {
@@ -93,13 +105,48 @@ export default function Merkle() {
     return 'inactive';
   };
 
-  if (levels.length === 0) return null;
+  if (levels.length === 0) {
+    return (
+      <div className="flex flex-1 items-center justify-center font-mono text-[10px] uppercase tracking-[0.2em] text-ink-muted">
+        Constructing eight SHA-256 leaves
+      </div>
+    );
+  }
 
   return (
-    <div className="flex-1 flex flex-col relative items-center justify-center px-2 py-8 pb-24 sm:px-6 md:px-12">
-      
-      {/* Tree Visualization */}
-      <div className="w-full max-w-5xl h-[32rem] sm:h-[36rem] relative">
+    <div className="flex-1 flex flex-col relative items-center justify-start px-2 py-8 pb-24 sm:px-6 md:px-12">
+      <header className="w-full max-w-5xl border-y border-white/10 py-5 md:py-6">
+        <div className="grid grid-cols-1 items-start gap-4 text-center md:grid-cols-[minmax(0,1fr)_auto] md:text-left">
+          <div className="space-y-2 md:max-w-2xl">
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-accent">Merkle inclusion proof</p>
+            <h2 className="font-serif text-2xl text-white">Choose a leaf. Follow only what the root needs.</h2>
+            <p className="max-w-xl font-sans text-sm text-ink-muted">The blue nodes are the three hashes supplied with the chosen leaf. Everything else falls away.</p>
+          </div>
+          <div className="shrink-0 font-mono text-[10px] uppercase tracking-widest text-ink-muted">
+            <p>Committed root</p>
+            <p className="mt-2 text-white">{bytesToHex(levels[0][0].hash).substring(0, 12)}…</p>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-wrap justify-center gap-2 md:justify-start" aria-label="Choose a Merkle leaf">
+          {levels[levels.length - 1].map((node, index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => setSelectedLeaf(index)}
+              aria-pressed={selectedLeaf === index}
+              className={`min-h-11 min-w-11 border font-mono text-[10px] uppercase tracking-widest transition-colors ${
+                selectedLeaf === index
+                  ? 'border-white bg-white text-black'
+                  : 'border-white/20 text-ink-muted hover:border-white/60 hover:text-white'
+              }`}
+            >
+              L{index}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <div className="w-full max-w-5xl h-[27rem] sm:h-[32rem] relative mt-6">
         
         {/* Background SVG for Tree Lines */}
         <svg
@@ -201,7 +248,7 @@ export default function Merkle() {
                       transition-colors duration-300
                       ${isRoot ? 'w-24 h-11 md:w-32 md:h-12' : ''}
                       ${!isRoot && !isLeaf ? 'w-14 h-10 md:w-24 md:h-10' : ''}
-                      ${isLeaf ? 'w-10 h-14 sm:w-11 md:w-16 md:h-20 cursor-pointer hover:border-white/50' : 'cursor-default'}
+                      ${isLeaf ? 'w-11 h-14 sm:w-12 md:w-16 md:h-20 cursor-pointer hover:border-white/50' : 'cursor-default'}
                       ${bg}
                     `}
                     aria-label={isLeaf ? `Select leaf ${nodeIndex}, hash ${hex}` : undefined}
@@ -226,14 +273,36 @@ export default function Merkle() {
         ))}
       </div>
 
-      <div className="min-h-8 px-12 font-mono text-[10px] text-ink-muted text-center" aria-live="polite">
-        {selectedLeaf === null && 'Select a leaf to reveal and verify its compact proof of inclusion.'}
-        {selectedLeaf !== null && verification === 'verifying' && 'Recomputing the root from the selected leaf and three sibling hashes…'}
-        {selectedLeaf !== null && verification === 'verified' && (
-          <span>Proof verified. Recomputed root <span className="text-accent">{bytesToHex(levels[0][0].hash).substring(0, 8)}</span> matches.</span>
+      <section className="w-full max-w-5xl border-t border-white/10 pt-5" aria-live="polite">
+        {selectedLeaf === null && (
+          <p className="font-mono text-[10px] uppercase tracking-widest text-ink-muted text-center">
+            Select L0 through L7 above, or choose a leaf in the tree.
+          </p>
         )}
-        {selectedLeaf !== null && verification === 'failed' && <span className="text-red-400">Proof rejected: reconstructed root differs.</span>}
-      </div>
+        {selectedLeaf !== null && (
+          <>
+            <div className="flex flex-col items-center justify-between gap-3 md:flex-row">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-white">Proof for leaf L{selectedLeaf}</p>
+              <p className={`font-mono text-[10px] uppercase tracking-widest ${verification === 'failed' ? 'text-red-400' : verification === 'verified' ? 'text-accent' : 'text-ink-muted'}`}>
+                {verification === 'verifying' && 'Recomputing root'}
+                {verification === 'verified' && 'Root verified'}
+                {verification === 'failed' && 'Root rejected'}
+              </p>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-px border border-white/10 bg-white/10 sm:grid-cols-3">
+              {proofNodes.map((node) => (
+                <div key={node.step} className="bg-[#0a0a0a] px-4 py-4 font-mono text-[10px]">
+                  <p className="uppercase tracking-widest text-accent">Step {node.step}: {node.side}</p>
+                  <p className="mt-2 break-all text-ink-muted">{bytesToHex(node.hash).substring(0, 16)}…</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-center font-sans text-sm text-ink-muted">
+              Hash the selected value with each blue sibling in order. The final digest must equal the committed root.
+            </p>
+          </>
+        )}
+      </section>
 
       <InfoPanel
         references={[

@@ -24,6 +24,13 @@ type HistoryEntry = {
   verified: boolean;
 };
 
+const PROTOCOL_STEPS = [
+  { label: '1', title: 'Commit', detail: 'Prover fixes t before c exists.' },
+  { label: '2', title: 'Challenge', detail: 'Verifier draws c = 0 or 1.' },
+  { label: '3', title: 'Response', detail: 'Prover returns s.' },
+  { label: '4', title: 'Check', detail: 'Verifier tests one equation.' },
+];
+
 export default function ZeroKnowledge() {
   const [mode, setMode] = useState<SchnorrProverMode>('honest');
   const [phase, setPhase] = useState<Phase>('IDLE');
@@ -98,42 +105,66 @@ export default function ZeroKnowledge() {
   };
 
   const action = {
-    IDLE: { label: 'MAKE COMMITMENT', handler: makeCommitment },
-    COMMITMENT: { label: 'ISSUE RANDOM CHALLENGE', handler: issueChallenge },
-    CHALLENGE: { label: 'SEND RESPONSE', handler: sendResponse },
-    RESPONSE: { label: 'CHECK VERIFIER EQUATION', handler: verifyRound },
-    VERIFIED: { label: 'BEGIN INDEPENDENT ROUND', handler: nextRound },
+    IDLE: { label: 'Make commitment', hint: 'The prover must commit before learning the challenge.', handler: makeCommitment },
+    COMMITMENT: { label: 'Issue random challenge', hint: 'The verifier now chooses an independent bit.', handler: issueChallenge },
+    CHALLENGE: { label: 'Send response', hint: 'The prover answers the challenge without sending x.', handler: sendResponse },
+    RESPONSE: { label: 'Check equation', hint: 'The verifier checks whether gˢ = t · yᶜ.', handler: verifyRound },
+    VERIFIED: { label: 'Begin next round', hint: 'A new round uses a fresh commitment and challenge.', handler: nextRound },
+  }[phase];
+  const activeStep = {
+    IDLE: 0,
+    COMMITMENT: 1,
+    CHALLENGE: 2,
+    RESPONSE: 3,
+    VERIFIED: 4,
   }[phase];
 
   return (
     <div className="flex-1 flex flex-col items-center justify-start lg:justify-center p-6 md:p-12 py-12 relative min-h-max">
-      <div className="w-full max-w-3xl flex flex-col items-center gap-8 md:gap-10">
+      <div className="w-full max-w-3xl flex flex-col items-center gap-7 md:gap-9">
         <header className="text-center space-y-2">
-          <h2 className="font-mono text-xs tracking-widest text-ink-muted uppercase">
-            Schnorr Identification Protocol
-          </h2>
-          <p className="font-mono text-[10px] text-ink-muted opacity-60">
-            PUBLIC STATEMENT y = gˣ = {PUBLIC_KEY} · WITNESS x REMAINS WITH PROVER
-          </p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-accent">Schnorr identification</p>
+          <h2 className="font-serif text-2xl text-white">Prove you know x without sending x.</h2>
+          <p className="font-sans text-sm text-ink-muted">The verifier sees y = gˣ = {PUBLIC_KEY}. The secret x stays with the prover.</p>
         </header>
 
-        <div className="flex border border-white/20 font-mono text-[10px] tracking-widest">
+        <div className="w-full max-w-xl">
+          <div className="flex border border-white/20 font-mono text-[10px] tracking-widest">
           {[
-            { value: 'honest' as const, label: 'HAS WITNESS' },
-            { value: 'no-witness' as const, label: 'NO WITNESS / GUESS' },
+            { value: 'honest' as const, label: 'PROVER KNOWS X' },
+            { value: 'no-witness' as const, label: 'PROVER GUESSES' },
           ].map((option) => (
             <button
               key={option.value}
               onClick={() => changeMode(option.value)}
               disabled={phase !== 'IDLE' && phase !== 'VERIFIED'}
-              className={`px-4 md:px-6 py-3 transition-colors disabled:cursor-not-allowed ${
+              className={`min-h-12 flex-1 px-3 md:px-6 py-3 transition-colors disabled:cursor-not-allowed ${
                 mode === option.value ? 'bg-white text-black' : 'text-white hover:bg-white/5'
               }`}
             >
               {option.label}
             </button>
           ))}
+          </div>
+          <p className="mt-3 text-center font-sans text-sm text-ink-muted">
+            {mode === 'honest'
+              ? 'With x, the prover can answer either challenge after committing.'
+              : 'Without x, the prover must guess the challenge before committing. A wrong guess fails.'}
+          </p>
         </div>
+
+        <ol className="grid w-full grid-cols-2 border border-white/10 bg-white/5 sm:grid-cols-4">
+          {PROTOCOL_STEPS.map((step, index) => {
+            const complete = activeStep > index;
+            const current = activeStep === index + 1;
+            return (
+              <li key={step.label} className={`min-h-20 border-b border-r border-white/10 px-3 py-3 last:border-r-0 sm:border-b-0 ${current ? 'bg-white text-black' : complete ? 'text-white' : 'text-ink-muted'}`}>
+                <p className="font-mono text-[9px] uppercase tracking-widest">{step.label}. {step.title}</p>
+                <p className={`mt-2 font-sans text-xs leading-snug ${current ? 'text-black/70' : 'text-ink-muted'}`}>{step.detail}</p>
+              </li>
+            );
+          })}
+        </ol>
 
         <div className="w-full grid grid-cols-[1fr_auto_1fr] items-center gap-4 md:gap-10 font-mono text-xs uppercase tracking-widest text-ink-muted">
           <div className="text-center space-y-3">
@@ -157,22 +188,22 @@ export default function ZeroKnowledge() {
           <AnimatePresence mode="wait">
             {phase === 'IDLE' && (
               <ProtocolMessage key="idle" muted>
-                READY FOR AN INDEPENDENT ROUND
+                READY: THE VERIFIER HAS NO COMMITMENT TO CHECK YET
               </ProtocolMessage>
             )}
             {phase === 'COMMITMENT' && preparation && (
               <ProtocolMessage key="commitment" direction="right">
-                COMMITMENT t = gʳ = {preparation.commitment} →
+                1. PROVER COMMITS t = gʳ = {preparation.commitment} →
               </ProtocolMessage>
             )}
             {phase === 'CHALLENGE' && pendingChallenge !== null && (
               <ProtocolMessage key="challenge" direction="left">
-                ← RANDOM CHALLENGE c = {pendingChallenge}
+                ← 2. VERIFIER CHOOSES c = {pendingChallenge}
               </ProtocolMessage>
             )}
             {phase === 'RESPONSE' && round && (
               <ProtocolMessage key="response" direction="right">
-                RESPONSE s = {round.response} →
+                3. PROVER RETURNS s = {round.response} →
               </ProtocolMessage>
             )}
             {phase === 'VERIFIED' && round && (
@@ -183,7 +214,7 @@ export default function ZeroKnowledge() {
                 className="font-mono text-[10px] md:text-xs tracking-widest uppercase space-y-3"
               >
                 <p className={round.verified ? 'text-white' : 'text-[#ef4444]'}>
-                  gˢ = t · yᶜ: {round.verified ? 'ACCEPTED' : 'REJECTED'}
+                  4. gˢ = t · yᶜ: {round.verified ? 'ACCEPTED' : 'REJECTED'}
                 </p>
                 {round.mode === 'no-witness' && (
                   <p className="text-ink-muted opacity-60">
@@ -197,8 +228,8 @@ export default function ZeroKnowledge() {
 
         <div className="w-full max-w-md space-y-4">
           <div className="flex justify-between font-mono text-[10px] tracking-widest text-ink-muted uppercase">
-            <span>Accepted streak: {successfulStreak}</span>
-            <span>Knowledge confidence: {confidence.toFixed(2)}%</span>
+            <span>Accepted rounds: {successfulStreak}</span>
+            <span>Evidence against guessing: {confidence.toFixed(2)}%</span>
           </div>
           <div className="flex gap-1 h-2 w-full bg-white/5 overflow-hidden" aria-label="Round results">
             {history.map((entry, index) => (
@@ -211,21 +242,26 @@ export default function ZeroKnowledge() {
               />
             ))}
           </div>
+        </div>
+
+        <p className="max-w-xl text-center font-mono text-[9px] leading-relaxed tracking-wider text-ink-muted opacity-60 uppercase">
+          After n accepted independent binary challenges, a guessing prover passes every round with probability 2⁻ⁿ.
+          A rejection resets the count.
+        </p>
+
+        <div className="fixed bottom-3 left-1/2 z-30 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 border border-white/20 bg-canvas/95 p-2 shadow-2xl backdrop-blur-sm">
+          <p className="px-3 pb-2 pt-1 text-center font-sans text-sm text-ink-muted">{action.hint}</p>
           <button
             onClick={action.handler}
-            className="mt-4 w-full px-6 py-3 bg-[#D4D4D4] text-[#0E0E0E] font-mono text-xs tracking-widest hover:bg-white transition-colors border border-white/20"
+            className="min-h-12 w-full bg-[#D4D4D4] px-6 font-mono text-xs uppercase tracking-widest text-[#0E0E0E] transition-colors hover:bg-white"
           >
             {action.label}
           </button>
         </div>
-
-        <p className="max-w-xl text-center font-mono text-[9px] leading-relaxed tracking-wider text-ink-muted opacity-60 uppercase">
-          Confidence is 1 − 2⁻ⁿ after n consecutive accepted, independent binary-challenge rounds.
-          A rejection resets the accepted streak.
-        </p>
       </div>
 
       <InfoPanel
+        actionOffset="raised"
         references={[
           {
             title: 'Schnorr: Efficient Identification and Signatures',

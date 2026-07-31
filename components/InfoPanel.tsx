@@ -16,6 +16,7 @@ interface InfoPanelProps {
   year: number;
   process: string;
   proposition: string;
+  actionOffset?: 'default' | 'raised';
   children?: React.ReactNode;
   technicalRecord?: {
     algorithm: string;
@@ -25,7 +26,7 @@ interface InfoPanelProps {
   references?: Reference[];
 }
 
-export function InfoPanel({ title, year, process, proposition, children, technicalRecord, references }: InfoPanelProps) {
+export function InfoPanel({ title, year, process, proposition, actionOffset = 'default', children, technicalRecord, references }: InfoPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
   const titleId = useId();
   const descriptionId = useId();
@@ -209,7 +210,9 @@ export function InfoPanel({ title, year, process, proposition, children, technic
       <button
         ref={openerRef}
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-20 right-4 md:bottom-16 md:right-8 z-30 min-h-11 border border-white/25 bg-canvas/95 px-3 text-ink hover:border-white/60 hover:text-white transition-colors flex items-center gap-2 font-mono text-[10px] tracking-[0.18em] uppercase"
+        className={`fixed right-4 md:right-8 z-30 min-h-11 border border-white/25 bg-canvas/95 px-3 text-ink hover:border-white/60 hover:text-white transition-colors flex items-center gap-2 font-mono text-[10px] tracking-[0.18em] uppercase ${
+          actionOffset === 'raised' ? 'bottom-40 md:bottom-32' : 'bottom-20 md:bottom-16'
+        }`}
         aria-label="View contextual information"
         aria-haspopup="dialog"
         aria-expanded={isOpen}
