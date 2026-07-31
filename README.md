@@ -87,4 +87,4 @@ The application provides visible keyboard focus, a scrollable mobile layout, and
 - Web Crypto API for SHA-256 and secure random values
 - Vitest for cryptographic invariant tests
 
-Inspired by Hal Finney's 1993 "cryptographic trading cards" message. Developed by Mars Mensch, 2026.
+Inspired by Hal Finney's 1993 "cryptographic trading cards" message. Developed by Marsmensch, 2026.

@@ -28,7 +28,7 @@ export default function RootLayout({
               <a href="mailto:marsmensch@pm.me" className="hover:text-white transition-colors">marsmensch@pm.me</a>
             </div>
             <div className="text-center md:text-right opacity-50 flex gap-4 md:gap-8 items-center flex-col sm:flex-row">
-              <span>Developed by Mars Mensch, 2026.</span>
+              <span>Developed by Marsmensch, 2026.</span>
               <span className="hidden sm:inline">Inspired by Hal Finney&apos;s 1993 &quot;Crypto trading cards&quot; post</span>
             </div>
           </footer>
