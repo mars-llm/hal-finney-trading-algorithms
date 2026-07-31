@@ -23,7 +23,7 @@ export default function EllipticCurve() {
     return pts;
   }, []);
 
-  const [selected, setSelected] = useState<Point[]>([]);
+  const [selected, setSelected] = useState<Point[]>(() => [points[3], points[20]]);
   const [activePointIndex, setActivePointIndex] = useState(0);
 
   const handlePointClick = (pt: Point) => {
@@ -103,9 +103,8 @@ export default function EllipticCurve() {
 
   const activePoint = points[activePointIndex];
   const examples = [
-    { label: 'P + Q', points: [points[3], points[20]] },
-    { label: '2P', points: [points[40], points[40]] },
-    { label: 'P + Q', points: [points[58], points[60]] },
+    { label: 'Double a point', points: [points[40], points[40]] },
+    { label: 'Change both inputs', points: [points[58], points[60]] },
   ];
   const additionDetail = useMemo(() => {
     if (selected.length !== 2) return null;
@@ -127,14 +126,33 @@ export default function EllipticCurve() {
     };
   }, [selected]);
 
+  const modularConstruction = useMemo(() => {
+    if (selected.length !== 2 || result === null || additionDetail?.slope === null || !additionDetail) {
+      return null;
+    }
+
+    const intercept = mod(selected[0].y - additionDetail.slope * selected[0].x, P);
+    const thirdIntersection = { x: result.x, y: mod(-result.y, P) };
+    const residues = Array.from({ length: P }, (_, x) => ({
+      x,
+      y: mod(additionDetail.slope * x + intercept, P),
+    }));
+
+    return { residues, thirdIntersection };
+  }, [additionDetail, result, selected]);
+
+  const selectedMarkers = selected.length === 2 && selected[0].x === selected[1].x && selected[0].y === selected[1].y
+    ? [{ point: selected[0], label: 'P = Q' }]
+    : selected.map((point, index) => ({ point, label: index === 0 ? 'P' : 'Q' }));
+
   return (
     <div className="flex-1 flex flex-col items-center justify-start px-4 py-8 pb-24 md:px-12 md:py-12 md:pb-24 relative">
       <div className="w-full max-w-5xl flex flex-col items-center gap-6 md:gap-8">
         <header className="max-w-xl text-center space-y-3">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-accent">Finite field addition</p>
-          <h2 className="font-serif text-2xl tracking-wide text-white">Choose two points. Read their exact sum.</h2>
+          <h2 className="font-serif text-2xl tracking-wide text-white">Follow a modular line to its exact sum.</h2>
           <p className="font-sans text-sm leading-relaxed text-ink-muted">
-            Every visible mark satisfies y² = x³ + 7 modulo 97. Select P, then Q. The result is calculated in F₉₇.
+            Every pale point satisfies y² = x³ + 7 modulo 97. P and Q determine a field line. Its third curve point becomes their sum after the y-coordinate is negated.
           </p>
         </header>
 
@@ -154,7 +172,7 @@ export default function EllipticCurve() {
         </div>
 
         <div className="flex flex-wrap justify-center gap-2 font-mono text-[9px] uppercase tracking-widest">
-          <span className="flex min-h-11 items-center px-2 text-ink-muted">Try an exact example</span>
+          <span className="flex min-h-11 items-center px-2 text-ink-muted">Other exact constructions</span>
           {examples.map((example, index) => (
             <button
               key={index}
@@ -184,36 +202,92 @@ export default function EllipticCurve() {
             </pattern>
           </defs>
           <rect x="0" y="0" width={P} height={P} fill="url(#field-grid)" pointerEvents="none" />
-          {points.map((pt, i) => {
-            const isSelected = selected.some(s => s.x === pt.x && s.y === pt.y);
-            const isResult = result && result.x === pt.x && result.y === pt.y;
-            
-            return (
-              <rect
-                key={i}
-                x={pt.x - 0.5}
-                y={P - 1 - pt.y - 0.5}
-                width={1.2}
-                height={1.2}
-                pointerEvents="none"
-                className={`transition-colors duration-300 ${
-                  isSelected ? 'fill-white' :
-                  isResult ? 'fill-[#3B82F6]' :
-                  'fill-[#D4D4D4] opacity-35'
-                }`}
-              />
-            );
-          })}
-          {result && (
-            <circle
-              cx={result.x}
-              cy={P - 1 - result.y}
-              r="2"
-              fill="none"
-              stroke="#3b82f6"
-              strokeWidth="0.5"
+          {modularConstruction?.residues.map((pt) => (
+            <rect
+              key={`residue-${pt.x}`}
+              x={pt.x - 0.45}
+              y={P - 1 - pt.y - 0.45}
+              width={0.9}
+              height={0.9}
+              fill="#3b82f6"
+              opacity="0.42"
               pointerEvents="none"
             />
+          ))}
+          {points.map((pt, i) => (
+            <rect
+              key={i}
+              x={pt.x - 0.5}
+              y={P - 1 - pt.y - 0.5}
+              width={1.2}
+              height={1.2}
+              pointerEvents="none"
+              className="fill-[#D4D4D4] opacity-35"
+            />
+          ))}
+          {selectedMarkers.map(({ point, label }) => (
+            <g key={`${label}-${point.x}-${point.y}`} pointerEvents="none">
+              <rect
+                x={point.x - 1.25}
+                y={P - 1 - point.y - 1.25}
+                width={2.5}
+                height={2.5}
+                fill="#ffffff"
+              />
+              <text
+                x={point.x + 2.5}
+                y={P - 1 - point.y - 2.5}
+                fill="#ffffff"
+                fontSize="4"
+                fontFamily="ui-monospace, monospace"
+                letterSpacing="0.4"
+              >
+                {label}
+              </text>
+            </g>
+          ))}
+          {modularConstruction && (
+            <g pointerEvents="none">
+              <circle
+                cx={modularConstruction.thirdIntersection.x}
+                cy={P - 1 - modularConstruction.thirdIntersection.y}
+                r="2.1"
+                fill="#0a0a0a"
+                stroke="#3b82f6"
+                strokeWidth="0.7"
+              />
+              <text
+                x={modularConstruction.thirdIntersection.x + 2.7}
+                y={P - 1 - modularConstruction.thirdIntersection.y + 4.2}
+                fill="#93c5fd"
+                fontSize="4"
+                fontFamily="ui-monospace, monospace"
+                letterSpacing="0.4"
+              >
+                C
+              </text>
+            </g>
+          )}
+          {result && (
+            <g pointerEvents="none">
+              <rect
+                x={result.x - 1.35}
+                y={P - 1 - result.y - 1.35}
+                width="2.7"
+                height="2.7"
+                fill="#3b82f6"
+              />
+              <text
+                x={result.x + 2.5}
+                y={P - 1 - result.y - 2.5}
+                fill="#93c5fd"
+                fontSize="4"
+                fontFamily="ui-monospace, monospace"
+                letterSpacing="0.4"
+              >
+                R
+              </text>
+            </g>
           )}
           <circle
             cx={activePoint.x}
@@ -237,6 +311,11 @@ export default function EllipticCurve() {
             {selected.length === 2 && result === null && <span className="text-accent">P + Q = 𝒪, the point at infinity.</span>}
           </p>
           {additionDetail && <p className="mt-3 text-[9px] text-ink-muted">{additionDetail.formula}</p>}
+          {modularConstruction && (
+            <p className="mx-auto mt-3 max-w-xl font-sans text-xs normal-case tracking-normal text-ink-muted">
+              Blue residues satisfy the modular line through P and Q. C is its third curve point. Negating C&apos;s y-coordinate gives R = P + Q.
+            </p>
+          )}
           <div className="mt-3 flex items-center justify-center gap-5">
             <span>Field cursor ({activePoint.x}, {activePoint.y})</span>
             {selected.length > 0 && (
