@@ -50,14 +50,15 @@ npm run check
 
 `npm run check` runs lint, TypeScript, Vitest, and the production static export in that order. The exported site is written to `out/`.
 
-For browser-level timing and error regressions, start the development server and run these commands with `playwright-cli` installed locally:
+To test the export in Chrome, install the browser test dependency and run:
 
 ```bash
-playwright-cli -s=exhibit-regressions open http://127.0.0.1:3000/
-playwright-cli -s=exhibit-regressions run-code --filename=tests/browser-lamport-identification.js
-playwright-cli -s=exhibit-regressions run-code --filename=tests/browser-regressions.js
-playwright-cli -s=exhibit-regressions close
+npm ci --prefix tests/browser --ignore-scripts
+npm run check
+npm run test:browser
 ```
+
+The browser tests serve `out/` on loopback at the same path as GitHub Pages. They use installed Chrome, or the executable named by `CHROME_BIN`. Each exhibit must respond to mouse input at 1440 × 900 and touch input at 390 × 844. The mobile profile is emulated, not a physical phone.
 
 ## GitHub Pages deployment
 
@@ -81,7 +82,7 @@ To publish:
 2. In the repository's Pages settings, select **GitHub Actions** as the source.
 3. Push to `main` or run the workflow manually.
 
-The workflow installs from `package-lock.json`, runs every quality gate, builds the static export, and deploys `out/`. Trailing-slash output gives each route an `index.html`, so direct exhibit URLs work on static hosting.
+GitHub Actions builds the site once and tests that export before uploading it. A failed desktop or mobile check blocks the upload and the deployment; the previous site stays live. Only `main` can deploy through this workflow.
 
 ## Accessibility
 

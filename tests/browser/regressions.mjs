@@ -1,28 +1,37 @@
-/* eslint-disable @typescript-eslint/no-unused-expressions */
-async page => {
+export default async function checkStateRegressions(page) {
   const base = page.url().replace(/\/$/, '');
   const open = async slug => page.goto(`${base}/work/${slug}/`, { waitUntil: 'load' });
   const check = (condition, message) => { if (!condition) throw new Error(message); };
-  const delayDigests = async () => page.evaluate(() => {
+  const holdDigest = async prefix => page.evaluate(prefix => {
     const original = crypto.subtle.digest.bind(crypto.subtle);
     crypto.subtle.digest = async (...args) => {
       const result = await original(...args);
-      await new Promise(resolve => setTimeout(resolve, 300));
+      if (new TextDecoder().decode(args[1]).startsWith(prefix)) {
+        crypto.subtle.digest = original;
+        await new Promise(resolve => { window.releaseDigest = resolve; });
+      }
       return result;
     };
-  });
+  }, prefix);
+  const held = () => page.waitForFunction(() => typeof window.releaseDigest === 'function');
+  const release = () => page.evaluate(() => { window.releaseDigest(); delete window.releaseDigest; });
 
   await open('post-quantum');
   await page.getByRole('button', { name: 'GENERATE ONE-TIME KEY', exact: true }).click();
   await page.getByRole('button', { name: 'SIGN ONCE / DISCARD PRIVATE KEY' }).waitFor();
-  await delayDigests();
+  await holdDigest('HASH');
   await page.getByRole('button', { name: 'SIGN ONCE / DISCARD PRIVATE KEY' }).click();
+  await held();
   check(await page.getByRole('textbox', { name: 'Message to sign or verify' }).isDisabled(), 'Message must be locked during signing');
+  await release();
   await page.getByText(/VALID: ALL 256/).waitFor({ timeout: 15000 });
   await page.getByRole('textbox', { name: 'Message to sign or verify' }).fill('ALTERED');
   check(await page.getByText(/VALID: ALL 256/).count() === 0, 'Editing must clear the old verification');
+  await holdDigest('ALTERED');
   await page.getByRole('button', { name: 'VERIFY CURRENT MESSAGE' }).click();
+  await held();
   check(await page.getByRole('textbox', { name: 'Message to sign or verify' }).isDisabled(), 'Message must be locked during verification');
+  await release();
   await page.getByText(/INVALID: THE MESSAGE/).waitFor({ timeout: 15000 });
 
   await open('post-quantum');
@@ -42,20 +51,56 @@ async page => {
   check(await page.getByRole('button', { name: 'GENERATE ONE-TIME KEY', exact: true }).isEnabled(), 'A fresh key must be available after failure');
 
   await open('schnorr');
-  await delayDigests();
+  await holdDigest('cryptographic-arts/schnorr/v1|');
   await page.getByRole('button', { name: 'RUN JOINT TRANSCRIPT' }).click();
+  await held();
   check(await page.getByRole('slider', { name: 'Alice secret scalar' }).isDisabled(), 'Schnorr inputs must be locked while running');
+  check(await page.getByRole('slider', { name: 'Bob secret scalar' }).isDisabled(), 'Both Schnorr inputs must lock');
+  await release();
   await page.getByText(/gˢ = R.*VERIFIED/).waitFor();
   check(await page.getByRole('slider', { name: 'Alice secret scalar' }).inputValue() === '3', 'The displayed secret must match the transcript');
   check(await page.getByText('X = gˣ = 8', { exact: true }).count() > 0, 'The transcript must show the public key for secret 3');
 
+  // With the same choice of nonce index, a failed round must still consume both nonces.
+  const startPredictableRound = async fail => {
+    await open('schnorr');
+    await page.evaluate(fail => {
+      const random = crypto.getRandomValues.bind(crypto);
+      crypto.getRandomValues = a => a instanceof Uint32Array && a.length === 1 ? a.fill(0) : random(a);
+      if (fail) {
+        const digest = crypto.subtle.digest.bind(crypto.subtle);
+        crypto.subtle.digest = async (...args) => {
+          if (new TextDecoder().decode(args[1]).startsWith('cryptographic-arts/schnorr/v1|')) {
+            crypto.subtle.digest = digest;
+            throw new Error('Injected transcript failure');
+          }
+          return digest(...args);
+        };
+      }
+    }, fail);
+    await page.getByRole('button', { name: 'RUN JOINT TRANSCRIPT' }).click();
+  };
+  const nonces = async () => {
+    await page.getByText(/gˢ = R.*VERIFIED/).waitFor();
+    return page.getByText(/^r = \d+$/).allTextContents();
+  };
+  await startPredictableRound(false);
+  const control = await nonces();
+  await startPredictableRound(true);
+  await page.getByRole('alert').filter({ hasText: 'Transcript generation failed' }).waitFor();
+  await page.getByRole('button', { name: 'RUN JOINT TRANSCRIPT' }).click();
+  const retry = await nonces();
+  check(control.length === 2 && retry.length === 2 && retry.every((n, i) => n !== control[i]), 'A failed transcript must not return either reserved nonce');
+
   await open('avalanche');
   await page.getByRole('grid', { name: /256 input bits/ }).waitFor();
-  await delayDigests();
-  await page.getByPlaceholder('Enter seed text...').fill('NEW');
+  await holdDigest('OLD');
+  await page.getByPlaceholder('Enter seed text...').fill('OLD');
+  await held();
   check(await page.getByRole('button', { name: 'Invert', exact: true }).isDisabled(), 'Inversion must be locked while the seed is initializing');
-  await page.getByRole('button', { name: 'Invert', exact: true }).waitFor({ state: 'visible' });
-  await page.waitForFunction(() => !document.querySelector('button:disabled') || !Array.from(document.querySelectorAll('button')).some(button => button.textContent.trim() === 'Invert' && button.disabled));
+  await page.getByPlaceholder('Enter seed text...').fill('NEW');
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('button')).some(button => button.textContent.trim() === 'Invert' && !button.disabled));
+  await release();
   const firstByte = () => page.locator('[role="gridcell"]').evaluateAll(cells => cells.slice(0, 8).map(cell => cell.getAttribute('aria-label').slice(-1)).join(''));
   check(await firstByte() === '01001110', 'The grid must correspond to the new seed');
   await page.getByRole('button', { name: 'Invert', exact: true }).click();
@@ -63,7 +108,13 @@ async page => {
   check(await firstByte() === '11001110', 'The inversion must apply to the new seed');
 
   await open('proof-of-work');
-  await page.evaluate(() => { crypto.subtle.digest = async () => { throw new Error('Injected digest failure'); }; });
+  await page.evaluate(() => {
+    const original = crypto.subtle.digest.bind(crypto.subtle);
+    crypto.subtle.digest = async (...args) => {
+      if (new TextDecoder().decode(args[1]).startsWith('CRYPTOGRAPHIC_ARTS_BLOCK_DATA')) throw new Error('Injected digest failure');
+      return original(...args);
+    };
+  });
   await page.getByRole('button', { name: 'BEGIN WORK' }).click();
   await page.getByText('Hashing failed. Try again.').waitFor();
   check(await page.locator('#pow-block-data').isEnabled(), 'A failed mining run must release its inputs');
@@ -71,11 +122,11 @@ async page => {
 
   await open('one-way');
   await page.getByRole('button', { name: 'Hash current digest' }).waitFor();
-  await page.waitForTimeout(300);
+  await page.locator('sup').filter({ hasText: /^1$/ }).waitFor();
   await page.evaluate(() => {
     const original = crypto.subtle.digest.bind(crypto.subtle);
     let failed = false;
-    crypto.subtle.digest = async (...args) => { if (!failed) { failed = true; throw new Error('Injected digest failure'); } return original(...args); };
+    crypto.subtle.digest = async (...args) => { if (!failed && args[1].byteLength === 32) { failed = true; throw new Error('Injected digest failure'); } return original(...args); };
   });
   await page.getByRole('button', { name: 'Hash current digest' }).click();
   await page.getByRole('alert').filter({ hasText: 'Hashing failed.' }).waitFor();

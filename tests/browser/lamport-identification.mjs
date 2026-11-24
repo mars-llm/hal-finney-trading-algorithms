@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-expressions */
-async page => {
+export default async function checkLamportAndIdentification(page) {
   const base = page.url().replace(/\/$/, '');
   const probe = await page.context().newPage();
   const measurements = [];

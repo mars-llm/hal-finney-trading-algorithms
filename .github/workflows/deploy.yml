@@ -7,8 +7,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: "pages"
@@ -17,6 +15,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
@@ -31,12 +30,20 @@ jobs:
         run: npm ci
       - name: Validate and build static export
         run: npm run check
+      - name: Install browser test dependency
+        run: npm ci --prefix tests/browser --ignore-scripts --no-audit --no-fund
+      - name: Test all eight exhibits in Chrome (desktop and mobile touch)
+        run: npm run test:browser
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
           path: ./out
 
   deploy:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
