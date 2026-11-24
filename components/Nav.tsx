@@ -34,7 +34,7 @@ export function Nav() {
 
   return (
     <header className="h-14 shrink-0 border-b border-white/10 bg-canvas text-ink z-40">
-      <div className="h-full px-4 md:px-8 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+      <div className={`h-full px-4 md:px-8 grid ${isHome ? 'grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[1fr_auto_1fr]' : 'grid-cols-[1fr_auto_1fr]'} items-center gap-3`}>
         <div className="justify-self-start min-w-0">
           {isHome ? (
             <span className="font-serif text-xs sm:text-sm tracking-[0.18em] uppercase text-white">
@@ -61,12 +61,12 @@ export function Nav() {
           )}
         </div>
 
-        <p className="justify-self-center truncate font-mono text-[9px] sm:text-[10px] uppercase tracking-[0.18em] text-ink-muted" aria-live="polite">
+        <p className={`${isHome ? 'hidden sm:block' : ''} justify-self-center min-w-0 truncate font-mono text-[9px] sm:text-[10px] uppercase tracking-[0.18em] text-ink-muted`} aria-live="polite">
           {currentWork ? `${currentWorkIndex + 1} / ${ALGORITHMS.length} · ${currentWorkTitle}` : (isColophon ? 'Colophon' : 'Exhibition index')}
         </p>
 
         {currentWork ? (
-          <nav aria-label="Work navigation" className="justify-self-end flex items-center gap-1">
+          <nav aria-label="Work navigation" className="col-start-3 justify-self-end flex items-center gap-1 md:gap-4">
             {previousWork ? (
               <Link
                 href={previousWork.href}
@@ -97,7 +97,7 @@ export function Nav() {
             )}
           </nav>
         ) : (
-          <nav aria-label="Catalogue" className="justify-self-end">
+          <nav aria-label="Catalogue" className={`${isHome ? 'col-start-2 sm:col-start-3' : 'col-start-3'} justify-self-end`}>
             <Link
               href={isColophon ? '/' : '/colophon'}
               className="flex min-h-11 items-center gap-2 font-mono text-[9px] sm:text-[10px] uppercase tracking-[0.18em] text-ink-muted hover:text-white transition-colors"

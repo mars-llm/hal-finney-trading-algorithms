@@ -88,7 +88,7 @@ Large collections of equivalent controls avoid excessive tab sequences. Bit grid
 
 ## Technical architecture
 
-- Framework: Next.js 15 App Router and React 19.
+- Framework: Next.js 16 App Router and React 19.
 - Rendering: static export with one directory index per route.
 - Styling: Tailwind CSS 4 with named canvas, ink, muted ink, and accent tokens.
 - Cryptography: Web Crypto API for SHA-256 and random values; TypeScript `BigInt` and integer arithmetic for finite groups.

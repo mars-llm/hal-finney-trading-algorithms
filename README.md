@@ -80,7 +80,7 @@ The application provides visible keyboard focus, a scrollable mobile layout, and
 
 ## Technical record
 
-- Next.js 15 App Router with static export
+- Next.js 16 App Router with static export
 - React 19 and TypeScript
 - Tailwind CSS 4
 - Motion for structural transitions

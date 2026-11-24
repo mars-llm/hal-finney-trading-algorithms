@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <rect width="64" height="64" fill="#0e0e0e"/>
-  <path fill="#d4d4d4" d="M12 12h16v16H12zm24 0h16v16H36zM12 36h16v16H12z"/>
-  <path fill="#3b82f6" d="M36 36h16v16H36z"/>
+  <!-- The first 64 bits of SHA-256("Cryptographic Arts"), read left to right. -->
+  <path fill="#d4d4d4" d="M14 8h4v4h-4zM26 8h4v4h-4zM32 8h4v4h-4zM38 8h4v4h-4zM44 8h4v4h-4zM50 8h4v4h-4zM8 14h4v4h-4zM38 14h4v4h-4zM44 14h4v4h-4zM8 20h4v4h-4zM14 20h4v4h-4zM20 20h4v4h-4zM38 20h4v4h-4zM50 20h4v4h-4zM8 26h4v4h-4zM14 26h4v4h-4zM20 26h4v4h-4zM26 26h4v4h-4zM38 26h4v4h-4zM50 26h4v4h-4zM14 32h4v4h-4zM32 32h4v4h-4zM38 32h4v4h-4zM44 32h4v4h-4zM8 38h4v4h-4zM14 38h4v4h-4zM20 38h4v4h-4zM26 38h4v4h-4zM8 44h4v4h-4zM20 44h4v4h-4zM26 44h4v4h-4zM32 44h4v4h-4zM44 44h4v4h-4zM14 50h4v4h-4zM20 50h4v4h-4zM26 50h4v4h-4z"/>
 </svg>
