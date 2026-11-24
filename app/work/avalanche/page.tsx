@@ -1,64 +1,68 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useReducer } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { InfoPanel } from '../../../components/InfoPanel';
 import { sha256, bytesToBits, flipBit } from '../../../lib/crypto';
+import { avalancheReducer } from '../../../lib/avalanche-machine';
 
 export default function Avalanche() {
   const [seedText, setSeedText] = useState("CRYPTOGRAPHIC_ARTS");
-  const [inputBytes, setInputBytes] = useState<Uint8Array | null>(null);
-  const [outputBytes, setOutputBytes] = useState<Uint8Array | null>(null);
-  const [inputBits, setInputBits] = useState<boolean[]>([]);
-  const [outputBits, setOutputBits] = useState<boolean[]>([]);
-  const [prevOutputBits, setPrevOutputBits] = useState<boolean[]>([]);
-  const [flippedIndex, setFlippedIndex] = useState<number | null>(null);
+  const [state, dispatch] = useReducer(avalancheReducer, { phase: 'initializing', id: 0, data: null });
   const [activeBit, setActiveBit] = useState(0);
   const requestIdRef = useRef(0);
+  const busyRef = useRef(false);
   const shouldReduceMotion = useReducedMotion();
+  const inputBytes = state.data?.input ?? null;
+  const inputBits = inputBytes ? bytesToBits(inputBytes) : [];
+  const outputBits = state.data ? bytesToBits(state.data.output) : [];
+  const prevOutputBits = state.data ? bytesToBits(state.data.previousOutput) : [];
+  const flippedIndex = state.data?.flippedIndex ?? null;
 
   const initialize = useCallback(async (text: string) => {
     const requestId = ++requestIdRef.current;
+    busyRef.current = true;
+    dispatch({ type: 'initialize', id: requestId });
     const encoder = new TextEncoder();
     const bytes = encoder.encode(text);
     // Pad or truncate to exactly 32 bytes
     const padded = new Uint8Array(32);
     padded.set(bytes.slice(0, 32));
     
-    const out = await sha256(padded);
-    if (requestId !== requestIdRef.current) return;
-    
-    setInputBytes(padded);
-    setOutputBytes(out);
-    setInputBits(bytesToBits(padded));
-    
-    const outBits = bytesToBits(out);
-    setOutputBits(outBits);
-    setPrevOutputBits(outBits);
-    setFlippedIndex(null);
-    setActiveBit(0);
+    try {
+      const out = await sha256(padded);
+      if (requestId !== requestIdRef.current) return;
+      dispatch({ type: 'initialized', id: requestId, input: padded, output: out });
+      setActiveBit(0);
+    } catch {
+      if (requestId === requestIdRef.current) dispatch({ type: 'failed', id: requestId });
+    } finally {
+      if (requestId === requestIdRef.current) busyRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
-    initialize(seedText);
-  }, [initialize, seedText]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void initialize('CRYPTOGRAPHIC_ARTS');
+    return () => { requestIdRef.current += 1; };
+  }, [initialize]);
 
   const handleBitClick = async (index: number) => {
-    if (!inputBytes) return;
+    if (!inputBytes || state.phase !== 'ready' || busyRef.current) return;
 
     const requestId = ++requestIdRef.current;
-    setFlippedIndex(index);
+    busyRef.current = true;
     setActiveBit(index);
     const newInputBytes = flipBit(inputBytes, index);
-    setInputBytes(newInputBytes);
-    setInputBits(bytesToBits(newInputBytes));
-
-    const newOutputBytes = await sha256(newInputBytes);
-    if (requestId !== requestIdRef.current) return;
-
-    setPrevOutputBits(outputBits);
-    setOutputBytes(newOutputBytes);
-    setOutputBits(bytesToBits(newOutputBytes));
+    dispatch({ type: 'invert', id: requestId, input: newInputBytes, index });
+    try {
+      const newOutputBytes = await sha256(newInputBytes);
+      if (requestId === requestIdRef.current) dispatch({ type: 'hashed', id: requestId, output: newOutputBytes });
+    } catch {
+      if (requestId === requestIdRef.current) dispatch({ type: 'failed', id: requestId });
+    } finally {
+      if (requestId === requestIdRef.current) busyRef.current = false;
+    }
   };
 
   const moveActiveBit = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -88,8 +92,6 @@ export default function Avalanche() {
     void handleBitClick(row * 16 + column);
   };
 
-  if (!inputBytes || !outputBytes) return null;
-
   return (
     <div className="flex-1 flex flex-col items-center justify-start px-4 py-10 pb-24 md:p-12 md:pb-24 relative">
       
@@ -98,24 +100,28 @@ export default function Avalanche() {
          <input 
            type="text" 
            value={seedText}
-           onChange={(e) => setSeedText(e.target.value)}
+           onChange={(e) => { setSeedText(e.target.value); void initialize(e.target.value); }}
            className="bg-transparent border-b border-white/20 text-white font-mono text-xs text-center pb-2 focus:outline-none focus:border-white/50 transition-colors w-full"
            placeholder="Enter seed text..."
            maxLength={32}
          />
       </div>
 
-      <div className="w-full flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-16">
+      {state.phase === 'error' && <p role="alert" className="mb-4 text-sm text-[#ef4444]">Hashing failed. <button type="button" className="underline" onClick={() => void initialize(seedText)}>Try again</button></p>}
+      {state.phase === 'initializing' && <p role="status" className="mb-4 text-sm text-ink-muted">Updating the seed…</p>}
+
+      {state.data && <div aria-busy={state.phase !== 'ready'} className={`w-full flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-16 ${state.phase === 'initializing' || state.phase === 'error' ? 'opacity-40' : ''}`}>
         {/* Input Grid */}
         <div className="w-full max-w-[20rem] flex flex-col items-center gap-5">
           <h2 className="font-mono text-xs tracking-widest text-ink-muted uppercase">Input (256 bits)</h2>
           <div
             role="grid"
             tabIndex={0}
+            aria-disabled={state.phase !== 'ready'}
             aria-label={`256 input bits. Bit ${activeBit} selected. Use arrow keys to move and Enter or Space to invert.`}
             aria-activedescendant={`input-bit-${activeBit}`}
-            onKeyDown={moveActiveBit}
-            onPointerUp={handleGridPointer}
+            onKeyDown={state.phase === 'ready' ? moveActiveBit : undefined}
+            onPointerUp={state.phase === 'ready' ? handleGridPointer : undefined}
             className="grid aspect-square w-full grid-cols-16 gap-[3px] bg-white/[0.04] p-3 cursor-crosshair touch-none"
           >
             {inputBits.map((bit, i) => (
@@ -150,6 +156,7 @@ export default function Avalanche() {
             </label>
             <button
               type="button"
+              disabled={state.phase !== 'ready'}
               onClick={() => void handleBitClick(activeBit)}
               className="min-h-11 shrink-0 border border-white/25 px-4 font-mono text-[9px] uppercase tracking-widest text-ink hover:border-white/60 hover:text-white transition-colors"
             >
@@ -202,7 +209,7 @@ export default function Avalanche() {
             )}
           </p>
         </div>
-      </div>
+      </div>}
 
       <InfoPanel
         references={[

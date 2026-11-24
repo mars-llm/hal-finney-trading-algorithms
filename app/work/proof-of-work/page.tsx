@@ -1,16 +1,17 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useReducer } from 'react';
 import { InfoPanel } from '../../../components/InfoPanel';
 import { countLeadingZeroBits, bytesToHex } from '../../../lib/crypto';
+import { initialWorkState, workReducer } from '../../../lib/proof-work-machine';
 
 export default function ProofOfWork() {
   const [blockData, setBlockData] = useState('CRYPTOGRAPHIC_ARTS_BLOCK_DATA');
   const [targetBits, setTargetBits] = useState(12);
-  const [nonce, setNonce] = useState(0);
-  const [currentHash, setCurrentHash] = useState<Uint8Array | null>(null);
-  const [isMining, setIsMining] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [state, dispatch] = useReducer(workReducer, initialWorkState);
+  const { nonce, hash: currentHash } = state;
+  const isMining = state.phase === 'mining';
+  const success = state.phase === 'found';
   const miningRef = useRef(false);
   const runIdRef = useRef(0);
 
@@ -25,8 +26,7 @@ export default function ProofOfWork() {
     if (miningRef.current) return;
     const runId = ++runIdRef.current;
     miningRef.current = true;
-    setIsMining(true);
-    setSuccess(false);
+    dispatch({ type: 'start', id: runId });
     
     let n = success ? nonce : 0;
     const encoder = new TextEncoder();
@@ -35,39 +35,43 @@ export default function ProofOfWork() {
     const tick = async () => {
       if (!miningRef.current || runId !== runIdRef.current) return;
       
-      let found = false;
-      let hash = new Uint8Array(32);
+      try {
+        let found = false;
+        let hash = new Uint8Array(32);
       
-      // Small batches keep the changing nonce perceptible and the halt control responsive.
-      for (let i = 0; i < 64; i++) {
-        if (!miningRef.current || runId !== runIdRef.current) return;
-        n++;
-        const nonceBytes = encoder.encode(n.toString());
-        const combined = new Uint8Array(prefix.length + nonceBytes.length);
-        combined.set(prefix);
-        combined.set(nonceBytes, prefix.length);
-        
-        const h = await crypto.subtle.digest('SHA-256', combined);
-        if (!miningRef.current || runId !== runIdRef.current) return;
-        hash = new Uint8Array(h);
-        
-        if (countLeadingZeroBits(hash) >= targetBits) {
-          found = true;
-          break;
-        }
-      }
+        // Small batches keep the changing nonce perceptible and the halt control responsive.
+        for (let i = 0; i < 64; i++) {
+          if (!miningRef.current || runId !== runIdRef.current) return;
+          n++;
+          const nonceBytes = encoder.encode(n.toString());
+          const combined = new Uint8Array(prefix.length + nonceBytes.length);
+          combined.set(prefix);
+          combined.set(nonceBytes, prefix.length);
 
-      if (!miningRef.current || runId !== runIdRef.current) return;
-      
-      setNonce(n);
-      setCurrentHash(hash);
-      
-      if (found) {
-        miningRef.current = false;
-        setIsMining(false);
-        setSuccess(true);
-      } else {
-        requestAnimationFrame(() => void tick());
+          const h = await crypto.subtle.digest('SHA-256', combined);
+          if (!miningRef.current || runId !== runIdRef.current) return;
+          hash = new Uint8Array(h);
+
+          if (countLeadingZeroBits(hash) >= targetBits) {
+            found = true;
+            break;
+          }
+        }
+
+        if (!miningRef.current || runId !== runIdRef.current) return;
+
+        dispatch({ type: 'progress', id: runId, nonce: n, hash, found });
+
+        if (found) {
+          miningRef.current = false;
+        } else {
+          requestAnimationFrame(() => void tick());
+        }
+      } catch {
+        if (runId === runIdRef.current && miningRef.current) {
+          miningRef.current = false;
+          dispatch({ type: 'failed', id: runId });
+        }
       }
     };
     
@@ -77,14 +81,12 @@ export default function ProofOfWork() {
   const stop = () => {
     miningRef.current = false;
     runIdRef.current += 1;
-    setIsMining(false);
+    dispatch({ type: 'stop' });
   };
 
   const resetResult = () => {
     stop();
-    setNonce(0);
-    setCurrentHash(null);
-    setSuccess(false);
+    dispatch({ type: 'reset' });
   };
 
   const changeDifficulty = (nextDifficulty: number) => {
@@ -172,6 +174,7 @@ export default function ProofOfWork() {
           <p className="font-mono text-xs opacity-40 uppercase tracking-widest">Current Nonce</p>
           <p className="font-mono text-2xl tracking-widest text-[#3B82F6]">{nonce}</p>
         </div>
+        {state.phase === 'error' && <p role="alert" className="text-center text-sm text-[#ef4444]">Hashing failed. Try again.</p>}
 
         <div className="flex justify-center pt-8">
           {isMining ? (

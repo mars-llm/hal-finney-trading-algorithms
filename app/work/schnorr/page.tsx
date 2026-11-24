@@ -1,26 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useReducer, useRef } from 'react';
 import { motion } from 'motion/react';
 import { InfoPanel } from '../../../components/InfoPanel';
 import {
-  JointSchnorrTranscript,
   SCHNORR_GROUP,
   createJointSchnorrTranscript,
   randomIntegerBelow,
 } from '../../../lib/schnorr';
+import { initialSchnorrState, schnorrReducer } from '../../../lib/schnorr-machine';
 
 const MESSAGE = 'JOINT AUTHORIZATION';
 
 export default function SchnorrSignatures() {
-  const [aliceSecret, setAliceSecret] = useState(3);
-  const [bobSecret, setBobSecret] = useState(7);
-  const [transcript, setTranscript] = useState<JointSchnorrTranscript | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
-  const [usedNonces, setUsedNonces] = useState(() => ({
-    alice: new Map<number, Set<number>>(),
-    bob: new Map<number, Set<number>>(),
-  }));
+  const [state, dispatch] = useReducer(schnorrReducer, undefined, initialSchnorrState);
+  const busyRef = useRef(false);
+  const requestId = useRef(0);
+  const { aliceSecret, bobSecret, usedNonces } = state;
+  const isRunning = state.phase === 'running';
+  const transcript = state.phase === 'complete' ? state.transcript : null;
   const keysCancel = (aliceSecret + bobSecret) % Number(SCHNORR_GROUP.q) === 0;
   const aliceUsed = usedNonces.alice.get(aliceSecret) ?? new Set<number>();
   const bobUsed = usedNonces.bob.get(bobSecret) ?? new Set<number>();
@@ -43,31 +41,28 @@ export default function SchnorrSignatures() {
   const nonceSpaceExhausted = availableNoncePairs.length === 0;
 
   const runTranscript = async () => {
-    setIsRunning(true);
+    if (busyRef.current || isRunning || keysCancel || nonceSpaceExhausted) return;
+    busyRef.current = true;
+    const id = ++requestId.current;
+    let started = false;
     try {
       const [aliceNonce, bobNonce] = availableNoncePairs[
         randomIntegerBelow(availableNoncePairs.length)
       ];
-      setTranscript(await createJointSchnorrTranscript({
+      dispatch({ type: 'start', id, aliceNonce, bobNonce });
+      started = true;
+      const result = await createJointSchnorrTranscript({
         message: MESSAGE,
         aliceSecret: BigInt(aliceSecret),
         bobSecret: BigInt(bobSecret),
         aliceNonce: BigInt(aliceNonce),
         bobNonce: BigInt(bobNonce),
-      }));
-      setUsedNonces((previous) => {
-        const alice = new Map(previous.alice);
-        const bob = new Map(previous.bob);
-        const aliceForSecret = new Set(alice.get(aliceSecret));
-        const bobForSecret = new Set(bob.get(bobSecret));
-        aliceForSecret.add(aliceNonce);
-        bobForSecret.add(bobNonce);
-        alice.set(aliceSecret, aliceForSecret);
-        bob.set(bobSecret, bobForSecret);
-        return { alice, bob };
       });
+      dispatch({ type: 'complete', id, transcript: result });
+    } catch {
+      dispatch(started ? { type: 'failed', id } : { type: 'selection-failed' });
     } finally {
-      setIsRunning(false);
+      busyRef.current = false;
     }
   };
 
@@ -85,8 +80,8 @@ export default function SchnorrSignatures() {
 
         <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-px bg-white/10 border border-white/10">
           {[
-            { name: 'Alice', value: aliceSecret, setter: setAliceSecret },
-            { name: 'Bob', value: bobSecret, setter: setBobSecret },
+            { name: 'Alice', value: aliceSecret, key: 'alice' as const },
+            { name: 'Bob', value: bobSecret, key: 'bob' as const },
           ].map((participant) => (
             <label
               key={participant.name}
@@ -101,9 +96,9 @@ export default function SchnorrSignatures() {
                 min="1"
                 max={Number(SCHNORR_GROUP.q - BigInt(1))}
                 value={participant.value}
+                disabled={isRunning}
                 onChange={(event) => {
-                  participant.setter(Number(event.target.value));
-                  setTranscript(null);
+                  dispatch({ type: 'change', participant: participant.key, value: Number(event.target.value) });
                 }}
                 className="w-full accent-white"
                 aria-label={`${participant.name} secret scalar`}
@@ -185,6 +180,8 @@ export default function SchnorrSignatures() {
                 ? 'FRESH NONCES / RUN AGAIN'
                 : 'RUN JOINT TRANSCRIPT'}
         </button>
+
+        {state.phase === 'error' && <p role="alert" className="text-sm text-[#ef4444]">{state.message}</p>}
 
         <p className="max-w-2xl text-center font-mono text-[9px] leading-relaxed tracking-wider text-ink-muted opacity-60 uppercase">
           {keysCancel

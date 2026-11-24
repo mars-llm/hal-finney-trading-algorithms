@@ -1,56 +1,68 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useReducer } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { InfoPanel } from '../../../components/InfoPanel';
 import { bytesToHex, sha256 } from '../../../lib/crypto';
+import { chainReducer } from '../../../lib/hash-chain-machine';
 
 export default function OneWay() {
   const [seedText, setSeedText] = useState("CRYPTOGRAPHIC_ARTS");
-  const [currentHash, setCurrentHash] = useState<Uint8Array | null>(null);
-  const [history, setHistory] = useState<string[]>([]); // store hex strings of history
-  const [isComputing, setIsComputing] = useState(false);
+  const [state, dispatch] = useReducer(chainReducer, { phase: 'initializing', id: 0, data: null });
+  const currentHash = state.data?.currentHash ?? null;
+  const history = state.data?.history ?? [];
+  const isComputing = state.phase === 'initializing' || state.phase === 'hashing';
   const requestIdRef = useRef(0);
+  const busyRef = useRef(false);
   const shouldReduceMotion = useReducedMotion();
 
   const initialize = useCallback(async (text: string) => {
     const requestId = ++requestIdRef.current;
-    setIsComputing(true);
+    busyRef.current = true;
+    dispatch({ type: 'initialize', id: requestId });
     const encoder = new TextEncoder();
     const bytes = encoder.encode(text);
     const padded = new Uint8Array(32);
     padded.set(bytes.slice(0, 32));
     
-    const out = await sha256(padded);
-    if (requestId !== requestIdRef.current) return;
-    setCurrentHash(out);
-    setHistory([]);
-    setIsComputing(false);
+    try {
+      const out = await sha256(padded);
+      if (requestId === requestIdRef.current) dispatch({ type: 'initialized', id: requestId, hash: out });
+    } catch {
+      if (requestId === requestIdRef.current) dispatch({ type: 'failed', id: requestId });
+    } finally {
+      if (requestId === requestIdRef.current) busyRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    initialize(seedText);
-  }, [initialize, seedText]);
+    void initialize('CRYPTOGRAPHIC_ARTS');
+    return () => { requestIdRef.current += 1; };
+  }, [initialize]);
 
   const advance = async () => {
-    if (!currentHash || isComputing) return;
+    if (!currentHash || state.phase !== 'ready' || busyRef.current) return;
     const requestId = ++requestIdRef.current;
-    setIsComputing(true);
+    busyRef.current = true;
+    dispatch({ type: 'advance', id: requestId });
     
     // Convert current to hex for history trace
     const hex = Array.from(currentHash).map(b => b.toString(16).padStart(2, '0')).join('');
     
     // Compute next
-    const nextHash = await sha256(currentHash);
-    if (requestId !== requestIdRef.current) return;
-    
-    setHistory(prev => [...prev, hex]);
-    setCurrentHash(nextHash);
-    setIsComputing(false);
+    try {
+      const nextHash = await sha256(currentHash);
+      if (requestId === requestIdRef.current) dispatch({ type: 'advanced', id: requestId, hash: nextHash, previous: hex });
+    } catch {
+      if (requestId === requestIdRef.current) dispatch({ type: 'failed', id: requestId });
+    } finally {
+      if (requestId === requestIdRef.current) busyRef.current = false;
+    }
   };
 
-  if (!currentHash) return null;
+  if (!currentHash) return state.phase === 'error'
+    ? <div role="alert" className="m-auto p-8 text-sm text-[#ef4444]">Hashing failed. <button type="button" className="underline" onClick={() => void initialize(seedText)}>Try again</button></div>
+    : null;
 
   const currentHex = bytesToHex(currentHash);
   const previousHex = history.length > 0 ? history[history.length - 1] : null;
@@ -89,7 +101,7 @@ export default function OneWay() {
             <input
               type="text"
               value={seedText}
-              onChange={(event) => setSeedText(event.target.value)}
+              onChange={(event) => { setSeedText(event.target.value); void initialize(event.target.value); }}
               className="w-full border-b border-white/20 bg-transparent pb-2 text-center font-mono text-xs text-white transition-colors focus:border-white/50 focus:outline-none sm:text-left"
               placeholder="Enter seed text"
               maxLength={32}
@@ -98,13 +110,16 @@ export default function OneWay() {
           <button
             type="button"
             onClick={advance}
-            disabled={isComputing}
+            disabled={isComputing || state.phase === 'error'}
             className="min-h-12 shrink-0 border border-white/30 bg-[#D4D4D4] px-6 font-mono text-[10px] uppercase tracking-widest text-[#0E0E0E] transition-colors hover:bg-white disabled:opacity-50"
           >
             {isComputing ? 'Hashing' : 'Hash current digest'}
           </button>
         </div>
+        {state.phase === 'error' && <p role="alert" className="mt-3 text-sm text-[#ef4444]">Hashing failed. <button type="button" className="underline" onClick={() => void initialize(seedText)}>Try again</button></p>}
 
+        {state.phase === 'initializing' && <p role="status" className="mt-8 text-sm text-ink-muted">Updating the seed…</p>}
+        {state.phase !== 'initializing' && state.phase !== 'error' && <>
         <section className="mt-8 w-full max-w-2xl border border-white/10 bg-[#0a0a0a] px-5 py-5 text-center font-mono text-[10px] uppercase tracking-widest">
           <p className="text-ink-muted">Chain position</p>
           <p className="mt-2 text-xl text-white">H<sup>{chainPosition}</sup>(seed)</p>
@@ -144,6 +159,7 @@ export default function OneWay() {
             {history.slice(-4).map((digest, index) => <span key={`${digest}-${index}`}>H{Math.max(1, chainPosition - history.slice(-4).length + index)} {digest.slice(0, 8)}…</span>)}
           </div>
         )}
+        </>}
       </div>
 
       <InfoPanel

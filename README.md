@@ -50,6 +50,14 @@ npm run check
 
 `npm run check` runs lint, TypeScript, Vitest, and the production static export in that order. The exported site is written to `out/`.
 
+For browser-level timing and error regressions, start the development server and run these commands with `playwright-cli` installed locally:
+
+```bash
+playwright-cli -s=exhibit-regressions open http://127.0.0.1:3000/
+playwright-cli -s=exhibit-regressions run-code --filename=tests/browser-regressions.js
+playwright-cli -s=exhibit-regressions close
+```
+
 ## GitHub Pages deployment
 
 The production configuration targets this exact repository name:

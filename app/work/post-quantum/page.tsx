@@ -1,13 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useReducer, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { InfoPanel } from '../../../components/InfoPanel';
 import { bytesToHex } from '../../../lib/crypto';
 import {
-  LamportPrivateKey,
-  LamportPublicKey,
-  LamportSignature,
   digestBits,
   generateLamportKeyPair,
   hashMessage,
@@ -16,72 +13,68 @@ import {
   signLamportMessage,
   verifyLamportSignature,
 } from '../../../lib/lamport';
-
-type Verification = 'valid' | 'invalid' | null;
+import { lamportReducer } from '../../../lib/lamport-machine';
 
 export default function PostQuantum() {
   const [message, setMessage] = useState('HASH');
-  const [privateKey, setPrivateKey] = useState<LamportPrivateKey | null>(null);
-  const [publicKey, setPublicKey] = useState<LamportPublicKey | null>(null);
-  const [publicFingerprint, setPublicFingerprint] = useState('');
-  const [signature, setSignature] = useState<LamportSignature | null>(null);
-  const [signatureFingerprint, setSignatureFingerprint] = useState('');
-  const [signedDigest, setSignedDigest] = useState<Uint8Array | null>(null);
-  const [currentDigest, setCurrentDigest] = useState('');
-  const [verification, setVerification] = useState<Verification>(null);
-  const [isWorking, setIsWorking] = useState(false);
+  const [state, dispatch] = useReducer(lamportReducer, { phase: 'empty' });
+  const busyRef = useRef(false);
+  const isWorking = state.phase === 'generating' || state.phase === 'signing' || state.phase === 'verifying';
+  const signed = state.phase === 'signed' || state.phase === 'verifying' ? state.data : null;
+  const publicFingerprint = state.phase === 'ready' || state.phase === 'signing' ? state.publicFingerprint : signed?.publicFingerprint ?? '';
+  const verification = signed?.verification ?? null;
 
   const generateKey = async () => {
-    setIsWorking(true);
+    if (busyRef.current || (state.phase !== 'empty' && state.phase !== 'signed' && state.phase !== 'error')) return;
+    busyRef.current = true;
+    dispatch({ type: 'generate' });
     try {
       const keyPair = await generateLamportKeyPair();
-      setPrivateKey(keyPair.privateKey);
-      setPublicKey(keyPair.publicKey);
-      setPublicFingerprint(await lamportPublicKeyFingerprint(keyPair.publicKey));
-      setSignature(null);
-      setSignatureFingerprint('');
-      setSignedDigest(null);
-      setCurrentDigest('');
-      setVerification(null);
+      const fingerprint = await lamportPublicKeyFingerprint(keyPair.publicKey);
+      dispatch({ type: 'generated', ...keyPair, publicFingerprint: fingerprint });
+    } catch {
+      dispatch({ type: 'failed', message: 'Key generation failed. Try again.' });
     } finally {
-      setIsWorking(false);
+      busyRef.current = false;
     }
   };
 
   const signOnce = async () => {
-    if (!privateKey || !publicKey) return;
-    setIsWorking(true);
+    if (busyRef.current || state.phase !== 'ready') return;
+    busyRef.current = true;
+    const { privateKey, publicKey } = state;
+    const signedMessage = message;
+    dispatch({ type: 'sign', message: signedMessage });
     try {
-      const signed = await signLamportMessage(privateKey, message);
-      const isValid = await verifyLamportSignature(publicKey, message, signed.signature);
-      setSignature(signed.signature);
-      setSignedDigest(signed.digest);
-      setSignatureFingerprint(await lamportSignatureFingerprint(signed.signature));
-      setCurrentDigest(bytesToHex(signed.digest));
-      setVerification(isValid ? 'valid' : 'invalid');
-      setPrivateKey(null);
+      const result = await signLamportMessage(privateKey, signedMessage);
+      const isValid = await verifyLamportSignature(publicKey, signedMessage, result.signature);
+      const fingerprint = await lamportSignatureFingerprint(result.signature);
+      dispatch({ type: 'signed', signature: result.signature, signatureFingerprint: fingerprint, signedDigest: result.digest, digest: bytesToHex(result.digest), valid: isValid });
+    } catch {
+      dispatch({ type: 'failed', message: 'Signing failed. Generate a fresh key before trying again.' });
     } finally {
-      setIsWorking(false);
+      busyRef.current = false;
     }
   };
 
   const verifyCurrentMessage = async () => {
-    if (!publicKey || !signature) return;
-    setIsWorking(true);
+    if (busyRef.current || state.phase !== 'signed') return;
+    busyRef.current = true;
+    const { publicKey, signature } = state.data;
+    const checkedMessage = message;
+    dispatch({ type: 'verify', message: checkedMessage });
     try {
-      const digest = await hashMessage(message);
-      setCurrentDigest(bytesToHex(digest));
-      setVerification(
-        await verifyLamportSignature(publicKey, message, signature)
-          ? 'valid'
-          : 'invalid',
-      );
+      const digest = await hashMessage(checkedMessage);
+      const valid = await verifyLamportSignature(publicKey, checkedMessage, signature);
+      dispatch({ type: 'verified', digest: bytesToHex(digest), valid });
+    } catch {
+      dispatch({ type: 'failed', message: 'Verification failed. Generate a fresh key to start again.' });
     } finally {
-      setIsWorking(false);
+      busyRef.current = false;
     }
   };
 
-  const bits = signedDigest ? digestBits(signedDigest) : [];
+  const bits = signed ? digestBits(signed.signedDigest) : [];
 
   return (
     <div className="flex-1 flex flex-col items-center justify-start lg:justify-center p-6 md:p-12 py-12 relative min-h-max">
@@ -91,10 +84,10 @@ export default function PostQuantum() {
             type="text"
             value={message}
             maxLength={32}
+            disabled={isWorking}
             onChange={(event) => {
               setMessage(event.target.value.slice(0, 32));
-              setCurrentDigest('');
-              setVerification(null);
+              dispatch({ type: 'edit' });
             }}
             placeholder="Message to sign"
             className="w-full bg-transparent border-b border-white/20 text-center font-mono text-xl py-2 focus:outline-none focus:border-white transition-colors"
@@ -117,7 +110,7 @@ export default function PostQuantum() {
             <div className="bg-[#0a0a0a] p-5 space-y-2 min-w-0">
               <p className="text-ink-muted uppercase tracking-widest">One-Time Signature</p>
               <p className="text-white break-all">
-                {signatureFingerprint ? `${signatureFingerprint.slice(0, 32)}…` : 'NOT CREATED'}
+                {signed ? `${signed.signatureFingerprint.slice(0, 32)}…` : 'NOT CREATED'}
               </p>
               <p className="text-ink-muted opacity-50">256 REVEALED SECRET BLOCKS</p>
             </div>
@@ -157,13 +150,13 @@ export default function PostQuantum() {
           </div>
 
           <div className="flex flex-col sm:flex-row justify-center gap-3">
-            {!publicKey || !privateKey ? (
+            {state.phase !== 'ready' && state.phase !== 'signing' ? (
               <button
                 onClick={generateKey}
                 disabled={isWorking}
                 className="px-7 py-3 border border-white/30 text-white font-mono text-xs tracking-widest hover:bg-white/5 transition-colors disabled:opacity-50"
               >
-                {isWorking ? 'GENERATING 512 HASHES…' : publicKey ? 'GENERATE FRESH ONE-TIME KEY' : 'GENERATE ONE-TIME KEY'}
+                {state.phase === 'generating' ? 'GENERATING 512 HASHES…' : signed ? 'GENERATE FRESH ONE-TIME KEY' : 'GENERATE ONE-TIME KEY'}
               </button>
             ) : (
               <button
@@ -171,16 +164,16 @@ export default function PostQuantum() {
                 disabled={isWorking}
                 className="px-7 py-3 bg-[#D4D4D4] text-[#0E0E0E] font-mono text-xs tracking-widest hover:bg-white transition-colors disabled:opacity-50"
               >
-                {isWorking ? 'SIGNING…' : 'SIGN ONCE / DISCARD PRIVATE KEY'}
+                {state.phase === 'signing' ? 'SIGNING…' : 'SIGN ONCE / DISCARD PRIVATE KEY'}
               </button>
             )}
-            {signature && (
+            {signed && (
               <button
                 onClick={verifyCurrentMessage}
                 disabled={isWorking}
                 className="px-7 py-3 border border-white/30 text-white font-mono text-xs tracking-widest hover:bg-white/5 transition-colors disabled:opacity-50"
               >
-                {isWorking ? 'VERIFYING 256 BLOCKS…' : 'VERIFY CURRENT MESSAGE'}
+                {state.phase === 'verifying' ? 'VERIFYING 256 BLOCKS…' : 'VERIFY CURRENT MESSAGE'}
               </button>
             )}
           </div>
@@ -190,23 +183,24 @@ export default function PostQuantum() {
               <motion.p
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={verification === 'valid' ? 'text-white' : 'text-[#ef4444]'}
+                className={verification.valid ? 'text-white' : 'text-[#ef4444]'}
               >
-                {verification === 'valid'
+                {verification.valid
                   ? 'VALID: ALL 256 REVEALED BLOCKS MATCH THE PUBLIC KEY'
                   : 'INVALID: THE MESSAGE DIGEST SELECTS DIFFERENT PUBLIC BLOCKS'}
               </motion.p>
             )}
-            {currentDigest && (
+            {verification && (
               <p className="text-ink-muted opacity-50 break-all">
-                CURRENT H(M): {currentDigest.slice(0, 40)}…
+                CURRENT H(M): {verification.digest.slice(0, 40)}…
               </p>
             )}
-            {signature && (
+            {signed && (
               <p className="text-[#ef4444] opacity-80">
                 PRIVATE KEY DISCARDED AFTER USE · GENERATE A FRESH KEY TO SIGN AGAIN
               </p>
             )}
+            {state.phase === 'error' && <p role="alert" className="text-[#ef4444]">{state.message}</p>}
           </div>
         </div>
       </div>

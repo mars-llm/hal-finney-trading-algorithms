@@ -1,11 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useReducer } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { InfoPanel } from '../../../components/InfoPanel';
 import {
-  IdentificationPreparation,
-  IdentificationRound,
   SchnorrProverMode,
   completeIdentification,
   prepareIdentification,
@@ -13,16 +11,10 @@ import {
   randomChallengeBit,
   randomScalar,
 } from '../../../lib/schnorr';
-
-type Phase = 'IDLE' | 'COMMITMENT' | 'CHALLENGE' | 'RESPONSE' | 'VERIFIED';
+import { identificationReducer, initialIdentificationState } from '../../../lib/identification-machine';
 
 const WITNESS = BigInt(6);
 const PUBLIC_KEY = publicKeyFromSecret(WITNESS);
-
-type HistoryEntry = {
-  challenge: 0 | 1;
-  verified: boolean;
-};
 
 const PROTOCOL_STEPS = [
   { label: '1', title: 'Commit', detail: 'Prover fixes t before c exists.' },
@@ -32,12 +24,11 @@ const PROTOCOL_STEPS = [
 ];
 
 export default function ZeroKnowledge() {
-  const [mode, setMode] = useState<SchnorrProverMode>('honest');
-  const [phase, setPhase] = useState<Phase>('IDLE');
-  const [preparation, setPreparation] = useState<IdentificationPreparation | null>(null);
-  const [pendingChallenge, setPendingChallenge] = useState<0 | 1 | null>(null);
-  const [round, setRound] = useState<IdentificationRound | null>(null);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [state, dispatch] = useReducer(identificationReducer, initialIdentificationState);
+  const { mode, phase, history } = state;
+  const preparation = state.phase === 'COMMITMENT' || state.phase === 'CHALLENGE' ? state.preparation : null;
+  const pendingChallenge = state.phase === 'CHALLENGE' ? state.challenge : null;
+  const round = state.phase === 'RESPONSE' || state.phase === 'VERIFIED' ? state.round : null;
 
   const successfulStreak = useMemo(() => {
     let count = 0;
@@ -52,56 +43,38 @@ export default function ZeroKnowledge() {
     : 0;
 
   const changeMode = (nextMode: SchnorrProverMode) => {
-    setMode(nextMode);
-    setPhase('IDLE');
-    setPreparation(null);
-    setPendingChallenge(null);
-    setRound(null);
-    setHistory([]);
+    dispatch({ type: 'mode', mode: nextMode });
   };
 
   const makeCommitment = () => {
     const hiddenGuess = mode === 'no-witness' ? randomChallengeBit() : undefined;
-    setPreparation(prepareIdentification(
+    dispatch({ type: 'commit', preparation: prepareIdentification(
       mode,
       PUBLIC_KEY,
       randomScalar(),
       hiddenGuess,
-    ));
-    setPendingChallenge(null);
-    setRound(null);
-    setPhase('COMMITMENT');
+    ) });
   };
 
   const issueChallenge = () => {
-    setPendingChallenge(randomChallengeBit());
-    setPhase('CHALLENGE');
+    dispatch({ type: 'challenge', challenge: randomChallengeBit() });
   };
 
   const sendResponse = () => {
     if (!preparation || pendingChallenge === null) return;
-    setRound(completeIdentification(
+    dispatch({ type: 'respond', round: completeIdentification(
       preparation,
       pendingChallenge,
       mode === 'honest' ? WITNESS : undefined,
-    ));
-    setPhase('RESPONSE');
+    ) });
   };
 
   const verifyRound = () => {
-    if (!round) return;
-    setHistory((previous) => [...previous, {
-      challenge: round.challenge,
-      verified: round.verified,
-    }]);
-    setPhase('VERIFIED');
+    dispatch({ type: 'verify' });
   };
 
   const nextRound = () => {
-    setPhase('IDLE');
-    setPreparation(null);
-    setPendingChallenge(null);
-    setRound(null);
+    dispatch({ type: 'next' });
   };
 
   const action = {
