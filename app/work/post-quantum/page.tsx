@@ -98,7 +98,36 @@ export default function PostQuantum() {
           </p>
         </header>
 
-        <div className="w-full space-y-6">
+        <div className="grid w-full gap-6">
+          <div className="flex flex-col justify-center gap-3 sm:order-1 sm:flex-row">
+            {state.phase !== 'ready' && state.phase !== 'signing' ? (
+              <button
+                onClick={generateKey}
+                disabled={isWorking}
+                className="px-7 py-3 border border-white/30 text-white font-mono text-xs tracking-widest hover:bg-white/5 transition-colors disabled:opacity-50"
+              >
+                {state.phase === 'generating' ? 'GENERATING 512 HASHES…' : signed ? 'GENERATE FRESH ONE-TIME KEY' : 'GENERATE ONE-TIME KEY'}
+              </button>
+            ) : (
+              <button
+                onClick={signOnce}
+                disabled={isWorking}
+                className="px-7 py-3 bg-[#D4D4D4] text-[#0E0E0E] font-mono text-xs tracking-widest hover:bg-white transition-colors disabled:opacity-50"
+              >
+                {state.phase === 'signing' ? 'SIGNING…' : 'SIGN ONCE / DISCARD PRIVATE KEY'}
+              </button>
+            )}
+            {signed && (
+              <button
+                onClick={verifyCurrentMessage}
+                disabled={isWorking}
+                className="px-7 py-3 border border-white/30 text-white font-mono text-xs tracking-widest hover:bg-white/5 transition-colors disabled:opacity-50"
+              >
+                {state.phase === 'verifying' ? 'VERIFYING 256 BLOCKS…' : 'VERIFY CURRENT MESSAGE'}
+              </button>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/10 border border-white/10 font-mono text-[10px]">
             <div className="bg-[#0a0a0a] p-5 space-y-2 min-w-0">
               <p className="text-ink-muted uppercase tracking-widest">Public Key</p>
@@ -149,36 +178,7 @@ export default function PostQuantum() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row justify-center gap-3">
-            {state.phase !== 'ready' && state.phase !== 'signing' ? (
-              <button
-                onClick={generateKey}
-                disabled={isWorking}
-                className="px-7 py-3 border border-white/30 text-white font-mono text-xs tracking-widest hover:bg-white/5 transition-colors disabled:opacity-50"
-              >
-                {state.phase === 'generating' ? 'GENERATING 512 HASHES…' : signed ? 'GENERATE FRESH ONE-TIME KEY' : 'GENERATE ONE-TIME KEY'}
-              </button>
-            ) : (
-              <button
-                onClick={signOnce}
-                disabled={isWorking}
-                className="px-7 py-3 bg-[#D4D4D4] text-[#0E0E0E] font-mono text-xs tracking-widest hover:bg-white transition-colors disabled:opacity-50"
-              >
-                {state.phase === 'signing' ? 'SIGNING…' : 'SIGN ONCE / DISCARD PRIVATE KEY'}
-              </button>
-            )}
-            {signed && (
-              <button
-                onClick={verifyCurrentMessage}
-                disabled={isWorking}
-                className="px-7 py-3 border border-white/30 text-white font-mono text-xs tracking-widest hover:bg-white/5 transition-colors disabled:opacity-50"
-              >
-                {state.phase === 'verifying' ? 'VERIFYING 256 BLOCKS…' : 'VERIFY CURRENT MESSAGE'}
-              </button>
-            )}
-          </div>
-
-          <div className="min-h-14 text-center font-mono text-[10px] tracking-wider uppercase space-y-2">
+          <div className="min-h-14 text-center font-mono text-[10px] tracking-wider uppercase space-y-2 sm:order-2">
             {verification && (
               <motion.p
                 initial={{ opacity: 0, y: 4 }}

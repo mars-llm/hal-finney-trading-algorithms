@@ -54,6 +54,7 @@ For browser-level timing and error regressions, start the development server and
 
 ```bash
 playwright-cli -s=exhibit-regressions open http://127.0.0.1:3000/
+playwright-cli -s=exhibit-regressions run-code --filename=tests/browser-lamport-identification.js
 playwright-cli -s=exhibit-regressions run-code --filename=tests/browser-regressions.js
 playwright-cli -s=exhibit-regressions close
 ```

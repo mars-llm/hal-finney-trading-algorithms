@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useReducer } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { InfoPanel } from '../../../components/InfoPanel';
 import {
   SchnorrProverMode,
@@ -157,46 +156,41 @@ export default function ZeroKnowledge() {
           </div>
         </div>
 
-        <div className="h-36 w-full border-y border-white/10 flex items-center justify-center text-center px-4">
-          <AnimatePresence mode="wait">
-            {phase === 'IDLE' && (
-              <ProtocolMessage key="idle" muted>
-                READY: THE VERIFIER HAS NO COMMITMENT TO CHECK YET
-              </ProtocolMessage>
-            )}
-            {phase === 'COMMITMENT' && preparation && (
-              <ProtocolMessage key="commitment" direction="right">
-                1. PROVER COMMITS t = gʳ = {preparation.commitment} →
-              </ProtocolMessage>
-            )}
-            {phase === 'CHALLENGE' && pendingChallenge !== null && (
-              <ProtocolMessage key="challenge" direction="left">
-                ← 2. VERIFIER CHOOSES c = {pendingChallenge}
-              </ProtocolMessage>
-            )}
-            {phase === 'RESPONSE' && round && (
-              <ProtocolMessage key="response" direction="right">
-                3. PROVER RETURNS s = {round.response} →
-              </ProtocolMessage>
-            )}
-            {phase === 'VERIFIED' && round && (
-              <motion.div
-                key="verified"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="font-mono text-[10px] md:text-xs tracking-widest uppercase space-y-3"
-              >
-                <p className={round.verified ? 'text-white' : 'text-[#ef4444]'}>
-                  4. gˢ = t · yᶜ: {round.verified ? 'ACCEPTED' : 'REJECTED'}
+        <div role="status" aria-atomic="true" className="h-36 w-full border-y border-white/10 flex items-center justify-center text-center px-4">
+          {phase === 'IDLE' && (
+            <ProtocolMessage muted>
+              READY: THE VERIFIER HAS NO COMMITMENT TO CHECK YET
+            </ProtocolMessage>
+          )}
+          {phase === 'COMMITMENT' && preparation && (
+            <ProtocolMessage direction="right">
+              1. PROVER COMMITS t = gʳ = {preparation.commitment} →
+            </ProtocolMessage>
+          )}
+          {phase === 'CHALLENGE' && pendingChallenge !== null && (
+            <ProtocolMessage direction="left">
+              ← 2. VERIFIER CHOOSES c = {pendingChallenge}
+            </ProtocolMessage>
+          )}
+          {phase === 'RESPONSE' && round && (
+            <ProtocolMessage direction="right">
+              3. PROVER RETURNS s = {round.response} →
+            </ProtocolMessage>
+          )}
+          {phase === 'VERIFIED' && round && (
+            <div
+              className="font-mono text-[10px] md:text-xs tracking-widest uppercase space-y-3"
+            >
+              <p className={round.verified ? 'text-white' : 'text-[#ef4444]'}>
+                4. gˢ = t · yᶜ: {round.verified ? 'ACCEPTED' : 'REJECTED'}
+              </p>
+              {round.mode === 'no-witness' && (
+                <p className="text-ink-muted opacity-60">
+                  PRECOMMITTED GUESS {round.guessedChallenge} / VERIFIER CHOSE {round.challenge}
                 </p>
-                {round.mode === 'no-witness' && (
-                  <p className="text-ink-muted opacity-60">
-                    PRECOMMITTED GUESS {round.guessedChallenge} / VERIFIER CHOSE {round.challenge}
-                  </p>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="w-full max-w-md space-y-4">
@@ -206,10 +200,8 @@ export default function ZeroKnowledge() {
           </div>
           <div className="flex gap-1 h-2 w-full bg-white/5 overflow-hidden" aria-label="Round results">
             {history.map((entry, index) => (
-              <motion.div
+              <div
                 key={index}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
                 className={`flex-1 ${entry.verified ? 'bg-[#D4D4D4]' : 'bg-[#ef4444]'}`}
                 title={`Challenge ${entry.challenge}: ${entry.verified ? 'accepted' : 'rejected'}`}
               />
@@ -287,10 +279,7 @@ function ProtocolMessage({
   muted?: boolean;
 }) {
   return (
-    <motion.div
-      initial={{ x: direction === 'left' ? 60 : direction === 'right' ? -60 : 0, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={{ x: direction === 'left' ? -60 : direction === 'right' ? 60 : 0, opacity: 0 }}
+    <div
       className={`px-5 py-2 border font-mono text-[10px] tracking-widest uppercase ${
         muted
           ? 'border-white/5 text-ink-muted opacity-40'
@@ -300,6 +289,6 @@ function ProtocolMessage({
       }`}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }
